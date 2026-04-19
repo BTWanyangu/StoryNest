@@ -11,7 +11,16 @@ import {
 } from './lib/api';
 
 const initialForm = { email: '', password: '', name: '', parentConsent: false };
-const initialProfile = { name: '', age: 7, interests: '', avatar: AVATARS[0], consent: false };
+const initialProfile = {
+  name: '',
+  age: 7,
+  interests: '',
+  avatar: AVATARS[0],
+  consent: false,
+  companion_name: '',
+  companion_type: '',
+  companion_trait: '',
+};
 
 function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
@@ -32,13 +41,57 @@ function formatStoryDate(dateValue) {
   });
 }
 
-function buildPrompt(profile, theme, length, moral, wish) {
+function getSeriesLabel(profile) {
+  if (!profile) return 'Story Series';
+  if (profile.companion_name) return `${profile.name} & ${profile.companion_name} Adventures`;
+  return `${profile.name}'s Adventures`;
+}
+
+function buildPrompt(profile, theme, length, moral, wish, previousStories = [], autoMode = false) {
+  const companionBlock = profile.companion_name
+    ? `
+Recurring companion:
+- Name: ${profile.companion_name}
+- Type: ${profile.companion_type || 'magical friend'}
+- Personality: ${profile.companion_trait || 'kind and loyal'}
+
+This companion must appear naturally throughout the story and feel emotionally important to ${profile.name}.
+`
+    : '';
+
+  const continuityBlock = previousStories.length
+    ? `
+Previous adventures for continuity:
+${previousStories.map((story, index) => `
+Adventure ${index + 1}:
+Title: ${story.title}
+Theme: ${story.theme || 'bedtime adventure'}
+Episode: ${story.episode_number || index + 1}
+Summary:
+${story.body.slice(0, 900)}
+`).join('\n')}
+
+Continuity rules:
+- Reference previous adventures naturally
+- Keep recurring characters consistent
+- Do not repeat the exact same plot
+- Make this feel like the next episode in the same story world
+`
+    : `
+This is the first adventure in a new series. Establish a memorable story world and recurring emotional elements that can continue in future stories.
+`;
+
   return `Write a bedtime story for a child named ${profile.name} who is ${profile.age} years old${profile.interests ? ` and loves ${profile.interests}` : ''}.
 
 Story theme: ${theme}
 Story length: ${length}
 ${moral ? `Moral lesson to include: ${moral}` : ''}
 ${wish ? `Special request from parent: ${wish}` : ''}
+Mode: ${autoMode ? 'Continue the child’s ongoing story series automatically based on previous adventures.' : 'Create a new bedtime story in the child’s ongoing story world.'}
+
+${companionBlock}
+
+${continuityBlock}
 
 Rules:
 - Start with TITLE: [creative whimsical story title] on its own line
@@ -46,15 +99,17 @@ Rules:
 - ${profile.name} MUST be the main hero/protagonist throughout
 - Use age-appropriate vocabulary for a ${profile.age} year old
 - Include vivid, imaginative, sensory descriptions
-- Add 1–2 other friendly characters for ${profile.name} to meet
+- Include emotional warmth and a sense of wonder
 - Include a moment of challenge that ${profile.name} overcomes with ${moral || 'cleverness or kindness'}
 - End peacefully and warmly — the story should make the child feel safe and sleepy
 - Split into clear paragraphs (blank line between each)
 - No violence, fear, or scary elements
-- Warm, cosy, magical tone throughout`;
+- Warm, cosy, magical tone throughout
+- If previous adventures exist, make this story feel like the next episode in that same world
+- Output only the title and story`;
 }
 
-function parseStory(raw, profile, theme) {
+function parseStory(raw, profile, theme, moral, previousStories = []) {
   let title = `${profile.name}'s Magical Adventure`;
   let body = raw.trim();
   const match = raw.match(/^TITLE:\s*(.+)/m);
@@ -63,6 +118,10 @@ function parseStory(raw, profile, theme) {
     body = raw.replace(/^TITLE:\s*.+\n?/m, '').trim();
   }
 
+  const nextEpisode = previousStories.length + 1;
+  const seriesId = profile.child_series_id || profile.id;
+  const coverSeed = `${seriesId}-${profile.name}-${title}`;
+
   return {
     title,
     body,
@@ -70,7 +129,11 @@ function parseStory(raw, profile, theme) {
     child_avatar: profile.avatar,
     child_id: profile.id,
     theme,
+    moral: moral || null,
     created_at: new Date().toISOString(),
+    series_id: seriesId,
+    episode_number: nextEpisode,
+    cover_image: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(coverSeed)}`,
   };
 }
 
@@ -112,8 +175,10 @@ function StarsBackground() {
 function Toast({ toast }) {
   if (!toast) return null;
   return (
-    <div className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-3 text-sm font-bold shadow-lg"
-      style={{ background: toast.bg || '#6bcb77', color: toast.bg ? '#fff' : '#0d0d1a' }}>
+    <div
+      className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-3 text-sm font-bold shadow-lg"
+      style={{ background: toast.bg || '#6bcb77', color: toast.bg ? '#fff' : '#0d0d1a' }}
+    >
       {toast.message}
     </div>
   );
@@ -152,16 +217,74 @@ export default function App() {
   const [loadingStory, setLoadingStory] = useState(false);
   const [subscription, setSubscription] = useState({ plan: 'free', status: 'none' });
   const [loadingAccount, setLoadingAccount] = useState(true);
+  const [speakingStoryId, setSpeakingStoryId] = useState(null);
 
   const token = session?.access_token;
   const user = session?.user;
   const storiesGenerated = userRecord?.stories_generated ?? 0;
   const isSubscribed = subscription.plan === 'premium';
-  const maxProfiles = isSubscribed ? 5 : 1;
+  const maxProfiles = isSubscribed ? 3 : 1;
   const selectedProfile = profiles.find((item) => item.id === selectedProfileId) || profiles[0] || null;
+
+  const selectedProfileStories = useMemo(
+    () => (selectedProfile ? library.filter((item) => item.child_id === selectedProfile.id) : []),
+    [library, selectedProfile]
+  );
+
+  const groupedLibrary = useMemo(() => {
+    const groups = {};
+    library.forEach((story) => {
+      const key = story.series_id || story.child_id || story.id;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(story);
+    });
+
+    return Object.values(groups)
+      .map((stories) =>
+        [...stories].sort((a, b) => {
+          const aEpisode = a.episode_number || 0;
+          const bEpisode = b.episode_number || 0;
+          return aEpisode - bEpisode;
+        })
+      )
+      .sort((a, b) => new Date(b[0]?.created_at || 0) - new Date(a[0]?.created_at || 0));
+  }, [library]);
 
   function showToast(message, bg) {
     setToast({ message, bg });
+  }
+
+  function stopSpeaking() {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+    setSpeakingStoryId(null);
+  }
+
+  function speakStory(story) {
+    if (!isSubscribed) {
+      showToast('Voice narration is a Premium feature.', '#ff6b6b');
+      return;
+    }
+
+    if (!('speechSynthesis' in window)) {
+      showToast('Voice narration is not supported in this browser.', '#ff6b6b');
+      return;
+    }
+
+    stopSpeaking();
+
+    const utterance = new SpeechSynthesisUtterance(`${story.title}. ${story.body}`);
+    utterance.rate = 0.92;
+    utterance.pitch = 1;
+    utterance.onend = () => setSpeakingStoryId(null);
+    utterance.onerror = () => {
+      setSpeakingStoryId(null);
+      showToast('Could not play narration', '#ff6b6b');
+    };
+
+    setSpeakingStoryId(story.id || story.title);
+    window.speechSynthesis.speak(utterance);
   }
 
   useEffect(() => {
@@ -246,6 +369,10 @@ export default function App() {
     bootstrap();
   }, [token, user?.id]);
 
+  useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
+
   async function handleAuthSubmit() {
     const { email, password, name, parentConsent } = authForm;
     if (!email || !password) return setAuthError('Please fill in all fields');
@@ -267,6 +394,7 @@ export default function App() {
   }
 
   async function signOut() {
+    stopSpeaking();
     await supabase.auth.signOut();
     setScreen('landing');
     setSelectedTab('generate');
@@ -282,7 +410,7 @@ export default function App() {
       return;
     }
     if (profiles.length >= maxProfiles) {
-      showToast(isSubscribed ? 'Maximum of 5 children reached.' : 'Free plan supports 1 child. Upgrade for up to 5!', '#ff6b6b');
+      showToast(isSubscribed ? 'Maximum of 3 children reached.' : 'Free plan supports 1 child. Upgrade for up to 3!', '#ff6b6b');
       return;
     }
 
@@ -292,6 +420,9 @@ export default function App() {
       age: Number(profileForm.age),
       interests: profileForm.interests.trim(),
       avatar: profileForm.avatar,
+      companion_name: profileForm.companion_name.trim(),
+      companion_type: profileForm.companion_type.trim(),
+      companion_trait: profileForm.companion_trait.trim(),
       consent_given_at: new Date().toISOString(),
     }).select().single();
 
@@ -326,25 +457,48 @@ export default function App() {
     showToast(`${profile.name}'s profile removed`, '#ff9898');
   }
 
-  async function handleGenerateStory() {
+  async function handleGenerateStory(autoMode = false) {
     if (!selectedProfile || !token) return;
     if (!isSubscribed && storiesGenerated >= 3) {
       showToast('You have used your 3 free stories. Upgrade to continue.', '#ff6b6b');
       return;
     }
+    if (autoMode && !isSubscribed) {
+      showToast('Auto-generate next episode is a Premium feature.', '#ff6b6b');
+      return;
+    }
 
     setLoadingStory(true);
     try {
-      const prompt = buildPrompt(selectedProfile, selectedTheme, selectedLength, selectedMoral, wish.trim());
+      const previousStories = selectedProfileStories.slice(0, 3);
+      const prompt = buildPrompt(
+        selectedProfile,
+        selectedTheme,
+        selectedLength,
+        selectedMoral,
+        wish.trim(),
+        previousStories,
+        autoMode
+      );
+
       const data = await generateStory(token, prompt);
-      const story = parseStory(data.text, selectedProfile, selectedTheme);
+      const story = parseStory(
+        data.text,
+        selectedProfile,
+        selectedTheme,
+        selectedMoral,
+        previousStories
+      );
+
       setCurrentStory(story);
+
       const nextCount = storiesGenerated + 1;
       const { error } = await supabase.from('users').update({ stories_generated: nextCount }).eq('id', user.id);
       if (!error) {
         setUserRecord((prev) => (prev ? { ...prev, stories_generated: nextCount } : prev));
       }
-      showToast('Story ready for tonight 🌙');
+
+      showToast(autoMode ? 'Next episode ready 🌙' : 'Story ready for tonight 🌙');
     } catch (error) {
       console.error(error);
       showToast(error.message || 'Could not generate story', '#ff6b6b');
@@ -355,11 +509,18 @@ export default function App() {
 
   async function saveCurrentStory() {
     if (!currentStory) return;
+    if (!isSubscribed) {
+      showToast('Saving to the story library is a Premium feature.', '#ff6b6b');
+      return;
+    }
+
     const alreadySaved = library.some((item) => item.title === currentStory.title && item.body === currentStory.body);
     if (alreadySaved) {
       showToast('Already saved to your library!');
       return;
     }
+
+    const episodeCount = library.filter((s) => (s.series_id || s.child_id) === (currentStory.series_id || currentStory.child_id)).length;
 
     const { data, error } = await supabase.from('stories').insert({
       user_id: user.id,
@@ -369,7 +530,10 @@ export default function App() {
       title: currentStory.title,
       body: currentStory.body,
       theme: currentStory.theme,
-      moral: selectedMoral || null,
+      moral: currentStory.moral || selectedMoral || null,
+      series_id: currentStory.series_id || currentStory.child_id,
+      episode_number: currentStory.episode_number || episodeCount + 1,
+      cover_image: currentStory.cover_image || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentStory.title)}`,
     }).select().single();
 
     if (error) {
@@ -415,6 +579,7 @@ export default function App() {
   async function handleDeleteAccount() {
     if (!window.confirm('This will permanently delete your account and all data. Are you sure?')) return;
     try {
+      stopSpeaking();
       await deleteAccountApi(token);
       await supabase.auth.signOut();
       showToast('Account deleted');
@@ -462,8 +627,8 @@ export default function App() {
                 <div className="grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-4">
                   {[
                     ['✨', 'Personalised', 'Your child is the hero every time'],
-                    ['📚', 'Saved library', 'Keep favourite stories forever'],
-                    ['🧒', 'Multi-child ready', 'Premium supports up to 5 children'],
+                    ['📚', 'Story series', 'Save stories as episodes with cover art'],
+                    ['🧒', 'Multi-child ready', 'Premium supports up to 3 child profiles'],
                     ['⚡', 'Fast generation', 'New bedtime stories in 10–20 seconds'],
                   ].map(([icon, title, desc]) => (
                     <div key={title} className="rounded-xl2 border border-white/10 bg-card p-5 text-center transition hover:border-purple2/40">
@@ -484,8 +649,8 @@ export default function App() {
                       <div className="mt-4 space-y-2 text-left text-sm text-text">
                         <div>✓ 3 free stories</div>
                         <div>✓ 1 child profile</div>
-                        <div className="opacity-40">✗ Unlimited stories</div>
-                        <div className="opacity-40">✗ Full story library</div>
+                        <div className="opacity-40">✗ Auto next episode</div>
+                        <div className="opacity-40">✗ Story library & narration</div>
                       </div>
                     </div>
                     <div className="relative w-full max-w-[240px] rounded-xl2 border-2 border-moon bg-card p-7">
@@ -494,9 +659,9 @@ export default function App() {
                       <div className="text-4xl font-extrabold text-moon">£5<span className="text-sm font-normal text-muted">/month</span></div>
                       <div className="mt-4 space-y-2 text-left text-sm text-text">
                         <div>✓ Unlimited stories</div>
-                        <div>✓ Up to 5 child profiles</div>
-                        <div>✓ Saved story library</div>
-                        <div>✓ Cancel any time</div>
+                        <div>✓ Up to 3 child profiles</div>
+                        <div>✓ Story series library + covers</div>
+                        <div>✓ Auto next episodes + narration</div>
                       </div>
                     </div>
                   </div>
@@ -556,6 +721,7 @@ export default function App() {
                   ))}
                 </div>
               </aside>
+
               <main className="order-1 story-scroll max-h-[calc(100vh-61px)] overflow-y-auto p-5 md:order-2 md:p-8">
                 {selectedTab === 'generate' && (
                   <section>
@@ -576,13 +742,22 @@ export default function App() {
                         <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Choose child</div>
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                           {profiles.map((profile) => (
-                            <button key={profile.id} onClick={() => setSelectedProfileId(profile.id)} className={classNames('relative rounded-xl2 border-2 p-5 text-center transition', selectedProfileId === profile.id ? 'border-moon bg-card shadow-[0_0_20px_rgba(255,217,125,.18)]' : 'border-transparent bg-card hover:-translate-y-0.5 hover:border-purple')}>
+                            <button
+                              key={profile.id}
+                              onClick={() => setSelectedProfileId(profile.id)}
+                              className={classNames(
+                                'relative rounded-xl2 border-2 p-5 text-center transition',
+                                selectedProfileId === profile.id ? 'border-moon bg-card shadow-[0_0_20px_rgba(255,217,125,.18)]' : 'border-transparent bg-card hover:-translate-y-0.5 hover:border-purple'
+                              )}
+                            >
                               <div className="mb-2 text-5xl">{profile.avatar}</div>
                               <div className="text-base font-extrabold text-star">{profile.name}</div>
                               <div className="text-xs text-muted">{profile.age} years old</div>
                               {profile.interests && <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>}
+                              {profile.companion_name && <div className="mt-1 text-[11px] text-moon">Companion: {profile.companion_name}</div>}
                             </button>
                           ))}
+
                           {profiles.length < maxProfiles && (
                             <button onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
                               <div className="mb-2 text-4xl">➕</div>
@@ -601,29 +776,87 @@ export default function App() {
                         <textarea value={wish} onChange={(e) => setWish(e.target.value)} rows={3} className="w-full rounded-xl2 border border-white/10 bg-card px-4 py-3 text-sm text-text outline-none transition focus:border-purple2" placeholder="e.g. Please include a friendly fox and a glowing lantern." />
                       </div>
 
+                      {selectedProfile && selectedProfileStories.length > 0 && (
+                        <div className="rounded-xl2 border border-white/10 bg-card p-4">
+                          <div className="mb-1 font-bold text-star">{getSeriesLabel(selectedProfile)}</div>
+                          <div className="text-sm text-muted">
+                            {selectedProfileStories.length} saved episode{selectedProfileStories.length === 1 ? '' : 's'} in this story world.
+                          </div>
+                        </div>
+                      )}
+
                       {!isSubscribed && (
                         <div className="rounded-xl2 border border-moon/25 bg-card p-4">
                           <div className="mb-1 font-bold text-moon">Free stories used: {storiesGenerated}/3</div>
-                          <div className="mb-3 text-sm text-muted">After 3 stories, upgrade to Premium for unlimited stories and more child profiles.</div>
+                          <div className="mb-3 text-sm text-muted">After 3 stories, upgrade to Premium for unlimited stories, story series, narration, and up to 3 child profiles.</div>
                           {storiesGenerated >= 3 && <button onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">Subscribe — £5/mo</button>}
                         </div>
                       )}
 
-                      <button disabled={!selectedProfile || loadingStory} onClick={handleGenerateStory} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60">{loadingStory ? 'Generating your story...' : 'Generate story ✨'}</button>
+                      <div className="flex flex-wrap gap-3">
+                        <button
+                          disabled={!selectedProfile || loadingStory}
+                          onClick={() => handleGenerateStory(false)}
+                          className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {loadingStory ? 'Generating your story...' : 'Generate story ✨'}
+                        </button>
+
+                        <button
+                          disabled={!selectedProfile || loadingStory}
+                          onClick={() => handleGenerateStory(true)}
+                          className="rounded-full border border-purple2/40 bg-card px-6 py-4 text-base font-bold text-purple3 transition hover:border-purple2 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          ⚡ Auto next episode
+                        </button>
+                      </div>
                     </div>
 
                     {currentStory && (
                       <div className="mt-8 rounded-xl2 border border-white/10 bg-card p-6">
-                        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                          <div>
-                            <div className="font-display text-3xl text-moon">{currentStory.title}</div>
-                            <div className="text-sm text-muted">{currentStory.child_avatar} {currentStory.child_name} · {currentStory.theme} · {formatStoryDate(currentStory.created_at)}</div>
+                        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div className="flex items-start gap-4">
+                            {currentStory.cover_image ? (
+                              <img
+                                src={currentStory.cover_image}
+                                alt={currentStory.title}
+                                className="h-20 w-20 rounded-xl object-cover border border-white/10 bg-night3"
+                              />
+                            ) : (
+                              <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
+                                📖
+                              </div>
+                            )}
+
+                            <div>
+                              <div className="font-display text-3xl text-moon">{currentStory.title}</div>
+                              <div className="text-sm text-muted">
+                                {currentStory.child_avatar} {currentStory.child_name} · {currentStory.theme} · Episode {currentStory.episode_number || 1} · {formatStoryDate(currentStory.created_at)}
+                              </div>
+                              {selectedProfile?.companion_name && (
+                                <div className="mt-1 text-xs text-purple3">
+                                  Companion: {selectedProfile.companion_name}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
+
                         <div className="space-y-5"><StoryParagraphs text={currentStory.body} /></div>
+
                         <div className="mt-6 flex flex-wrap gap-3">
                           <button onClick={saveCurrentStory} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">💾 Save to library</button>
-                          <button onClick={handleGenerateStory} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">🔄 Generate another</button>
+                          <button onClick={() => handleGenerateStory(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">🔄 Generate another</button>
+                          <button onClick={() => handleGenerateStory(true)} className="rounded-full border border-purple2/40 px-5 py-2.5 text-sm font-bold text-purple3">⚡ Next episode</button>
+                          <button
+                            onClick={() => speakStory({ ...currentStory, id: currentStory.id || currentStory.title })}
+                            className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
+                          >
+                            {speakingStoryId === (currentStory.id || currentStory.title) ? '🔊 Playing...' : '🔊 Voice narration'}
+                          </button>
+                          {speakingStoryId === (currentStory.id || currentStory.title) && (
+                            <button onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -633,25 +866,86 @@ export default function App() {
                 {selectedTab === 'library' && (
                   <section>
                     <h2 className="mb-1 font-display text-3xl text-moon">Story library</h2>
-                    <p className="mb-6 text-sm leading-6 text-muted">Saved bedtime stories live here for easy re-reading.</p>
-                    {library.length === 0 ? (
+                    <p className="mb-6 text-sm leading-6 text-muted">Saved bedtime stories live here as ongoing episodes and story series.</p>
+
+                    {!isSubscribed ? (
+                      <div className="rounded-xl2 border border-moon/25 bg-card p-10 text-center">
+                        <div className="mb-3 text-5xl">📚</div>
+                        <div className="mb-2 font-bold text-star">Story library is Premium</div>
+                        <div className="mb-4 text-sm text-muted">Upgrade to unlock saved episodes, series covers, continuity, and voice narration.</div>
+                        <button onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">Upgrade to Premium</button>
+                      </div>
+                    ) : library.length === 0 ? (
                       <div className="rounded-xl2 border border-white/10 bg-card p-10 text-center">
                         <div className="mb-3 text-5xl">📚</div>
                         <div className="mb-2 font-bold text-star">Your library is empty</div>
-                        <div className="mb-4 text-sm text-muted">Generate a story and save it — it will live here forever for your child to revisit.</div>
+                        <div className="mb-4 text-sm text-muted">Generate a story and save it — it will live here as part of your child’s ongoing story world.</div>
                         <button onClick={() => setSelectedTab('generate')} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">Generate first story →</button>
                       </div>
                     ) : (
-                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                        {library.map((story, index) => (
-                          <button key={story.id} onClick={() => setStoryModalIndex(index)} className="rounded-xl2 border border-white/10 bg-card p-5 text-left transition hover:-translate-y-0.5 hover:border-purple2/40">
-                            <div className="mb-3 text-3xl">{STORY_ICONS[index % STORY_ICONS.length]}</div>
-                            <div className="mb-1 font-bold text-star">{story.title}</div>
-                            <div className="mb-3 text-sm text-purple3">{story.child_avatar} {story.child_name}</div>
-                            <div className="mb-4 line-clamp-3 text-sm leading-6 text-muted">{story.body}</div>
-                            <div className="text-xs text-muted">{formatStoryDate(story.created_at)}</div>
-                          </button>
-                        ))}
+                      <div className="space-y-8">
+                        {groupedLibrary.map((series) => {
+                          const first = series[0];
+                          const seriesProfile = profiles.find((p) => p.id === first?.child_id);
+                          const seriesTitle = seriesProfile ? getSeriesLabel(seriesProfile) : `${first?.child_name || 'Story'} Adventures`;
+
+                          return (
+                            <div key={first?.series_id || first?.id} className="rounded-xl2 border border-white/10 bg-card p-5">
+                              <div className="mb-5 flex items-center gap-4">
+                                {first?.cover_image ? (
+                                  <img
+                                    src={first.cover_image}
+                                    alt={seriesTitle}
+                                    className="h-20 w-20 rounded-xl object-cover border border-white/10 bg-night3"
+                                  />
+                                ) : (
+                                  <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
+                                    {STORY_ICONS[0]}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-display text-2xl text-moon">{seriesTitle}</div>
+                                  <div className="text-sm text-muted">
+                                    {series.length} episode{series.length === 1 ? '' : 's'} · {first?.child_avatar} {first?.child_name}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                                {series.map((story) => {
+                                  const libraryIndex = library.findIndex((item) => item.id === story.id);
+                                  return (
+                                    <button
+                                      key={story.id}
+                                      onClick={() => setStoryModalIndex(libraryIndex)}
+                                      className="rounded-xl2 border border-white/10 bg-night3/40 p-4 text-left transition hover:-translate-y-0.5 hover:border-purple2/40"
+                                    >
+                                      {story.cover_image ? (
+                                        <img
+                                          src={story.cover_image}
+                                          alt={story.title}
+                                          className="mb-3 h-36 w-full rounded-lg object-cover border border-white/10 bg-night3"
+                                        />
+                                      ) : (
+                                        <div className="mb-3 flex h-36 w-full items-center justify-center rounded-lg border border-white/10 bg-night3 text-4xl">
+                                          {STORY_ICONS[(story.episode_number || 1) % STORY_ICONS.length]}
+                                        </div>
+                                      )}
+
+                                      <div className="mb-1 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                                        Episode {story.episode_number || 1}
+                                      </div>
+                                      <div className="mb-1 font-bold text-star">{story.title}</div>
+                                      <div className="mb-3 text-sm text-purple3">{story.child_avatar} {story.child_name}</div>
+                                      <div className="mb-4 line-clamp-3 text-sm leading-6 text-muted">{story.body}</div>
+                                      <div className="text-xs text-muted">{formatStoryDate(story.created_at)}</div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </section>
@@ -660,7 +954,7 @@ export default function App() {
                 {selectedTab === 'profiles' && (
                   <section>
                     <h2 className="mb-1 font-display text-3xl text-moon">Children</h2>
-                    <p className="mb-6 text-sm leading-6 text-muted">Manage child profiles, avatars, ages, and interests.</p>
+                    <p className="mb-6 text-sm leading-6 text-muted">Manage child profiles, avatars, ages, interests, and recurring companions.</p>
                     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                       {profiles.map((profile) => (
                         <div key={profile.id} className="relative rounded-xl2 border border-white/10 bg-card p-5 text-center">
@@ -669,8 +963,18 @@ export default function App() {
                           <div className="text-base font-extrabold text-star">{profile.name}</div>
                           <div className="text-xs text-muted">{profile.age} years old</div>
                           {profile.interests && <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>}
+                          {profile.companion_name && (
+                            <div className="mt-3 rounded-lg border border-white/10 bg-night3/60 p-3 text-left">
+                              <div className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-moon">Companion</div>
+                              <div className="text-sm font-bold text-star">{profile.companion_name}</div>
+                              <div className="text-xs text-muted">
+                                {profile.companion_type || 'friend'}{profile.companion_trait ? ` · ${profile.companion_trait}` : ''}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ))}
+
                       {profiles.length < maxProfiles && (
                         <button onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
                           <div className="mb-2 text-4xl">➕</div>
@@ -708,6 +1012,7 @@ export default function App() {
                             <button onClick={handleDeleteAccount} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete my account</button>
                           </div>
                         </div>
+
                         <div className="rounded-xl2 border border-white/10 bg-card p-6">
                           <div className="mb-1 text-sm font-extrabold uppercase tracking-[0.06em] text-purple3">Current plan</div>
                           <div className="mb-2 font-display text-2xl text-star">{isSubscribed ? 'Premium Plan' : 'Free Plan'}</div>
@@ -716,16 +1021,16 @@ export default function App() {
                             {isSubscribed ? (
                               <>
                                 <div>✓ Unlimited stories every night</div>
-                                <div>✓ Up to 5 child profiles</div>
-                                <div>✓ Unlimited story library</div>
-                                <div>✓ Cancel any time</div>
+                                <div>✓ Up to 3 child profiles</div>
+                                <div>✓ Story series library with cover images</div>
+                                <div>✓ Auto next episode + narration</div>
                               </>
                             ) : (
                               <>
                                 <div>✓ 3 free stories to try</div>
-                                <div className="opacity-40">✗ Unlimited stories</div>
-                                <div className="opacity-40">✗ Story library</div>
-                                <div className="opacity-40">✗ Multiple children</div>
+                                <div className="opacity-40">✗ Story library & series</div>
+                                <div className="opacity-40">✗ Auto next episode</div>
+                                <div className="opacity-40">✗ Voice narration & multiple children</div>
                               </>
                             )}
                           </div>
@@ -749,11 +1054,21 @@ export default function App() {
                 <div className="font-display text-2xl text-moon">Add child profile</div>
                 <button onClick={() => setProfileModalOpen(false)} className="text-muted">✕</button>
               </div>
+
               <div className="mb-4">
                 <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Name</label>
-                <input value={profileForm.name} onChange={(e) => { setProfileForm((prev) => ({ ...prev, name: e.target.value })); setProfileError(''); }} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Mia" />
+                <input
+                  value={profileForm.name}
+                  onChange={(e) => {
+                    setProfileForm((prev) => ({ ...prev, name: e.target.value }));
+                    setProfileError('');
+                  }}
+                  className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                  placeholder="Mia"
+                />
                 {profileError && <div className="mt-2 text-sm text-coral">{profileError}</div>}
               </div>
+
               <div className="mb-4 grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Age</label>
@@ -761,11 +1076,34 @@ export default function App() {
                     {Array.from({ length: 10 }, (_, index) => index + 3).map((age) => <option key={age} value={age}>{age}</option>)}
                   </select>
                 </div>
+
                 <div>
                   <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Interests</label>
                   <input value={profileForm.interests} onChange={(e) => setProfileForm((prev) => ({ ...prev, interests: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragons, stars, foxes" />
                 </div>
               </div>
+
+              <div className="mb-4 rounded-xl2 border border-white/10 bg-night3/40 p-4">
+                <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-moon">Recurring companion / sidekick</div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion name</label>
+                    <input value={profileForm.companion_name} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Zara" />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion type</label>
+                    <input value={profileForm.companion_type} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragon, robot, fairy" />
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion personality</label>
+                  <input value={profileForm.companion_trait} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="brave but easily startled" />
+                </div>
+              </div>
+
               <div className="mb-4">
                 <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Avatar</label>
                 <div className="grid grid-cols-5 gap-3">
@@ -776,13 +1114,23 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
               <div className="mb-4 rounded-sm2 bg-night3/60 p-4">
                 <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted">
-                  <input type="checkbox" checked={profileForm.consent} onChange={(e) => { setProfileForm((prev) => ({ ...prev, consent: e.target.checked })); setConsentError(''); }} className="mt-1" />
+                  <input
+                    type="checkbox"
+                    checked={profileForm.consent}
+                    onChange={(e) => {
+                      setProfileForm((prev) => ({ ...prev, consent: e.target.checked }));
+                      setConsentError('');
+                    }}
+                    className="mt-1"
+                  />
                   I confirm I am the parent or guardian of this child and consent to their personal data being processed as described in the Privacy Policy.
                 </label>
                 {consentError && <div className="mt-2 text-sm text-coral">{consentError}</div>}
               </div>
+
               <div className="flex justify-end gap-3">
                 <button onClick={() => setProfileModalOpen(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Cancel</button>
                 <button onClick={saveProfile} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Add child ✓</button>
@@ -795,14 +1143,44 @@ export default function App() {
           <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
             <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl2 border border-white/10 bg-card p-6">
               <div className="mb-4 flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-display text-3xl text-moon">{library[storyModalIndex].title}</div>
-                  <div className="text-sm text-muted">{library[storyModalIndex].child_avatar} {library[storyModalIndex].child_name} · {library[storyModalIndex].theme} · {formatStoryDate(library[storyModalIndex].created_at)}</div>
+                <div className="flex items-start gap-4">
+                  {library[storyModalIndex].cover_image ? (
+                    <img
+                      src={library[storyModalIndex].cover_image}
+                      alt={library[storyModalIndex].title}
+                      className="h-20 w-20 rounded-xl object-cover border border-white/10 bg-night3"
+                    />
+                  ) : (
+                    <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
+                      📖
+                    </div>
+                  )}
+
+                  <div>
+                    <div className="font-display text-3xl text-moon">{library[storyModalIndex].title}</div>
+                    <div className="text-sm text-muted">
+                      {library[storyModalIndex].child_avatar} {library[storyModalIndex].child_name} · {library[storyModalIndex].theme} · Episode {library[storyModalIndex].episode_number || 1} · {formatStoryDate(library[storyModalIndex].created_at)}
+                    </div>
+                  </div>
                 </div>
+
                 <button onClick={() => setStoryModalIndex(null)} className="text-muted">✕</button>
               </div>
+
               <div className="space-y-5"><StoryParagraphs text={library[storyModalIndex].body} /></div>
-              <div className="mt-6 flex justify-end gap-3">
+
+              <div className="mt-6 flex flex-wrap justify-end gap-3">
+                <button
+                  onClick={() => speakStory(library[storyModalIndex])}
+                  className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
+                >
+                  {speakingStoryId === library[storyModalIndex].id ? '🔊 Playing...' : '🔊 Voice narration'}
+                </button>
+
+                {speakingStoryId === library[storyModalIndex].id && (
+                  <button onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</button>
+                )}
+
                 <button onClick={() => setStoryModalIndex(null)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Close</button>
                 <button onClick={() => removeStory(storyModalIndex)} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete</button>
               </div>
