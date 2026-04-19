@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-night text-text font-body min-h-screen overflow-x-hidden;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.story-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.story-scroll::-webkit-scrollbar-thumb {
+  background: rgba(201, 179, 245, 0.25);
+  border-radius: 999px;
+}
