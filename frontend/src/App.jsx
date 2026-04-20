@@ -14,6 +14,7 @@ import FAQs from './components/FAQs';
 import Stats from './components/Stats';
 import Footer from './components/Footer';
 import Review from './components/Reviews';
+import FloatingTranslator from './components/FloatingTranslator';
 
 const initialForm = { email: '', password: '', name: '', parentConsent: false };
 const initialProfile = {
@@ -52,7 +53,7 @@ function getSeriesLabel(profile) {
   return `${profile.name}'s Adventures`;
 }
 
-function buildPrompt(profile, theme, length, moral, wish, previousStories = [], autoMode = false) {
+function buildPrompt(profile, theme, length, moral, wish, previousStories = [], autoMode = false, language = 'en') {
   const companionBlock = profile.companion_name
     ? `
 Recurring companion:
@@ -87,7 +88,8 @@ This is the first adventure in a new series. Establish a memorable story world a
 `;
 
   return `Write a bedtime story for a child named ${profile.name} who is ${profile.age} years old${profile.interests ? ` and loves ${profile.interests}` : ''}.
-
+Write the full title and story in this language: ${language}.
+If the language is not English, do not translate only parts of it — everything must be written naturally in ${language}.
 Story theme: ${theme}
 Story length: ${length}
 ${moral ? `Moral lesson to include: ${moral}` : ''}
@@ -279,6 +281,10 @@ export default function App() {
     [library, selectedProfile]
   );
 
+  const [selectedLanguage, setSelectedLanguage] = useState(
+  () => localStorage.getItem('storynest_selected_language') || 'en'
+);
+
   const groupedLibrary = useMemo(() => {
     const groups = {};
     library.forEach((story) => {
@@ -340,6 +346,15 @@ export default function App() {
     const timer = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+  const handler = (event) => {
+    setSelectedLanguage(event.detail?.language || 'en');
+  };
+
+  window.addEventListener('storynest-language-change', handler);
+  return () => window.removeEventListener('storynest-language-change', handler);
+}, []);
 
   useEffect(() => {
     let ignore = false;
@@ -526,7 +541,8 @@ export default function App() {
         selectedMoral,
         wish.trim(),
         previousStories,
-        autoMode
+        autoMode,
+        selectedLanguage
       );
 
       const data = await generateStory(token, prompt);
@@ -1423,7 +1439,7 @@ export default function App() {
             </motion.div>
           )}
         </AnimatePresence>
-
+          <FloatingTranslator />
         <Toast toast={toast} />
       </div>
     </div>

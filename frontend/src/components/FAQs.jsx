@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const faqs = [
   {
@@ -29,6 +30,46 @@ const faqs = [
   },
 ];
 
+const bottomTexts = [
+  "Quick answers for parents",
+  "Safe, simple, and personalized",
+  "Built for a real product experience",
+];
+
+function TypedText({ text, delay = 0 }) {
+  return (
+    <motion.span
+      className="inline-block"
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.8 }}
+      variants={{
+        hidden: {},
+        visible: {
+          transition: {
+            staggerChildren: 0.03,
+            delayChildren: delay,
+          },
+        },
+      }}
+    >
+      {text.split("").map((char, index) => (
+        <motion.span
+          key={index}
+          className="inline-block whitespace-pre"
+          variants={{
+            hidden: { opacity: 0, y: 6 },
+            visible: { opacity: 1, y: 0 },
+          }}
+          transition={{ duration: 0.2 }}
+        >
+          {char}
+        </motion.span>
+      ))}
+    </motion.span>
+  );
+}
+
 export default function FAQs() {
   const [openIndex, setOpenIndex] = useState(0);
 
@@ -39,34 +80,74 @@ export default function FAQs() {
   return (
     <section className="w-full border-t border-violet-100 bg-gradient-to-b from to-white px-4 py-20 md:px-8 md:py-28">
       <div className="mx-auto max-w-6xl">
-        <div className="text-center">
-          <div className="inline-flex items-center rounded-full bg-violet-100 px-4 py-2 text-sm font-medium text-violet-600">
+        <motion.div
+          className="text-center"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.25 }}
+          transition={{ duration: 0.6 }}
+        >
+          <motion.div
+            className="inline-flex items-center rounded-full bg-violet-100 px-4 py-2 text-sm font-medium text-violet-600"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, amount: 0.6 }}
+            transition={{ duration: 0.4 }}
+          >
             Frequently Asked Questions
-          </div>
+          </motion.div>
 
-          <h2 className="mt-6 text-4xl font-bold tracking-tight text-moon md:text-6xl">
+          <motion.h2
+            className="mt-6 text-4xl font-bold tracking-tight text-moon md:text-6xl"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+          >
             Got Questions?
-          </h2>
+          </motion.h2>
 
-          <h3 className="mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-500 bg-clip-text text-4xl font-bold text-transparent md:text-6xl">
+          <motion.h3
+            className="mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-500 bg-clip-text text-4xl font-bold text-transparent md:text-6xl"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+          >
             We&apos;ve Got Answers
-          </h3>
+          </motion.h3>
 
-          <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-purple-500 md:text-xl">
+          <motion.p
+            className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-purple-500 md:text-xl"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.3 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+          >
             Everything you need to know about the platform, how it works, and
             how families can get the best storytelling experience.
-          </p>
-        </div>
+          </motion.p>
+        </motion.div>
 
-        <div className="mt-14 rounded-[2rem] border border-moon bg-card p-4 shadow-[0_20px_60px_rgba(139,92,246,0.08)] backdrop-blur-sm md:p-6">
+        <motion.div
+          className="mt-14 rounded-[2rem] border border-moon bg-card p-4 shadow-[0_20px_60px_rgba(139,92,246,0.08)] backdrop-blur-sm md:p-6"
+          initial={{ opacity: 0, y: 35 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.15 }}
+          transition={{ duration: 0.6 }}
+        >
           <div className="space-y-4">
             {faqs.map((faq, index) => {
               const isOpen = openIndex === index;
 
               return (
-                <div
+                <motion.div
                   key={index}
                   className="overflow-hidden rounded-2xl border border-card bg-card shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
+                  initial={{ opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.2 }}
+                  transition={{ duration: 0.45, delay: index * 0.08 }}
                 >
                   <button
                     onClick={() => toggleFAQ(index)}
@@ -76,41 +157,67 @@ export default function FAQs() {
                       {faq.question}
                     </span>
 
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-50">
-                      <ChevronDown
-                        className={`h-5 w-5 text-violet-600 transition-transform duration-300 ${
-                          isOpen ? "rotate-180" : ""
-                        }`}
-                      />
-                    </span>
+                    <motion.span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-violet-50"
+                      animate={{ rotate: isOpen ? 180 : 0 }}
+                      transition={{ duration: 0.3 }}
+                    >
+                      <ChevronDown className="h-5 w-5 text-violet-600" />
+                    </motion.span>
                   </button>
 
-                  <div
-                    className={`grid transition-all duration-300 ease-in-out ${
-                      isOpen
-                        ? "grid-rows-[1fr] opacity-100"
-                        : "grid-rows-[0fr] opacity-0"
-                    }`}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="border-t border-card px-6 py-5 text-base leading-8 text-white md:px-8 md:text-lg">
-                        {faq.answer}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <motion.div
+                          className="border-t border-card px-6 py-5 text-base leading-8 text-white md:px-8 md:text-lg"
+                          initial={{ y: -8, opacity: 0 }}
+                          animate={{ y: 0, opacity: 1 }}
+                          exit={{ y: -8, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          {faq.answer}
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
               );
             })}
           </div>
-        </div>
+        </motion.div>
 
-        <div className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm text-slate-500 md:text-base">
-          <span>Quick answers for parents</span>
-          <span className="hidden h-1 w-1 rounded-full bg-slate-300 md:block" />
-          <span>Safe, simple, and personalized</span>
-          <span className="hidden h-1 w-1 rounded-full bg-slate-300 md:block" />
-          <span>Built for a real product experience</span>
-        </div>
+        <motion.div
+          className="mt-10 flex flex-wrap items-center justify-center gap-8 text-sm text-slate-500 md:text-base"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={{ duration: 0.5 }}
+        >
+          {bottomTexts.map((text, index) => (
+            <div key={text} className="flex items-center gap-8">
+              <span className="text-base md:text-lg">
+                <TypedText text={text} delay={index * 0.35} />
+              </span>
+
+              {index !== bottomTexts.length - 1 && (
+                <motion.span
+                  className="hidden h-1 w-1 rounded-full bg-slate-300 md:block"
+                  initial={{ opacity: 0, scale: 0 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true, amount: 0.8 }}
+                  transition={{ duration: 0.25, delay: 0.4 + index * 0.2 }}
+                />
+              )}
+            </div>
+          ))}
+        </motion.div>
       </div>
     </section>
   );
