@@ -1,48 +1,70 @@
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3001';
+const API_BASE = import.meta.env.VITE_BACKEND_URL;
 
-async function request(path, options = {}, token) {
-  const res = await fetch(`${BACKEND_URL}${path}`, {
-    ...options,
+async function request(path, { method = 'GET', token, body, headers = {} } = {}) {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method,
     headers: {
-      'Content-Type': 'application/json',
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
+      ...headers,
     },
+    ...(body ? { body: JSON.stringify(body) } : {}),
   });
 
-  const contentType = res.headers.get('content-type') || '';
-  const body = contentType.includes('application/json') ? await res.json() : await res.text();
+  let data = null;
 
-  if (!res.ok) {
-    const message = typeof body === 'string' ? body : body.error || 'Request failed';
-    throw new Error(message);
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
   }
 
-  return body;
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || `Request failed with status ${response.status}`);
+  }
+
+  return data;
 }
 
-export async function generateStory(token, prompt) {
-  return request('/generate-story', { method: 'POST', body: JSON.stringify({ prompt }) }, token);
+export function generateStory(token, prompt) {
+  return request('/generate-story', {
+    method: 'POST',
+    token,
+    body: { prompt },
+  });
 }
 
-export async function createCheckoutSession(token) {
-  return request('/create-checkout-session', { method: 'POST', body: JSON.stringify({}) }, token);
+export function createCheckoutSession(token) {
+  return request('/create-checkout-session', {
+    method: 'POST',
+    token,
+  });
 }
 
-export async function createPortalSession(token) {
-  return request('/create-portal-session', { method: 'POST', body: JSON.stringify({}) }, token);
+export function createPortalSession(token) {
+  return request('/create-portal-session', {
+    method: 'POST',
+    token,
+  });
 }
 
-export async function getSubscriptionStatus(token) {
-  return request('/subscription-status', { method: 'GET' }, token);
+export function getSubscriptionStatus(token) {
+  return request('/subscription-status', {
+    method: 'GET',
+    token,
+  });
 }
 
-export async function deleteAccountApi(token) {
-  return request('/delete-account', { method: 'DELETE' }, token);
+export function syncStripeSuccess(token, sessionId) {
+  return request(`/sync-checkout-session?session_id=${encodeURIComponent(sessionId)}`, {
+    method: 'POST',
+    token,
+  });
 }
 
-export async function syncStripeSuccess(token, sessionId) {
-  return request(`/sync-checkout-session?session_id=${encodeURIComponent(sessionId)}`, { method: 'POST' }, token);
+export function deleteAccountApi(token) {
+  return request('/delete-account', {
+    method: 'DELETE',
+    token,
+  });
 }
-
-export { BACKEND_URL };
