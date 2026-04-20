@@ -9,6 +9,10 @@ import {
   getSubscriptionStatus,
   syncStripeSuccess,
 } from './lib/api';
+import FAQs from './components/FAQs';
+import Stats from './components/Stats';
+import Footer from './components/Footer';
+import Review from './components/Reviews';
 
 const initialForm = { email: '', password: '', name: '', parentConsent: false };
 const initialProfile = {
@@ -615,6 +619,7 @@ export default function App() {
             </nav>
 
             {screen === 'landing' && (
+              <>
               <main className="mx-auto flex min-h-[calc(100vh-73px)] max-w-6xl flex-col items-center justify-center px-4 py-12 text-center">
                 <span className="mb-4 block text-7xl animate-floaty md:text-8xl">🌙</span>
                 <h1 className="mb-3 max-w-4xl font-display text-4xl leading-tight text-moon md:text-6xl">Every night, a new story with <em className="italic text-purple3">your child</em> as the hero</h1>
@@ -665,8 +670,16 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+                  
+                  
                 </section>
+                
               </main>
+              <Stats />
+              <Review />
+              <FAQs />
+              <Footer />
+              </>
             )}
 
             {screen === 'auth' && (
