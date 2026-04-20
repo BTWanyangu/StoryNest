@@ -38,17 +38,17 @@ export default function Stats() {
             return (
               <div
                 key={stat.id}
-                className="flex items-center gap-5 rounded-3xl bg-white px-6 py-6 shadow-[0_8px_24px_rgba(15,23,42,0.08)] border border-slate-100"
+                className="flex items-center gap-5 rounded-3xl bg-card px-6 py-6 shadow-[0_8px_24px_rgba(15,23,42,0.08)] border border-moon"
               >
-                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-indigo-50 shrink-0">
-                  <Icon className="h-8 w-8 text-indigo-600" strokeWidth={2} />
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-purple-500 shrink-0">
+                  <Icon className="h-8 w-8 text-moon" strokeWidth={2} />
                 </div>
 
                 <div>
-                  <h3 className="text-4xl font-bold leading-none text-indigo-600">
+                  <h3 className="text-4xl font-bold leading-none text-moon">
                     {stat.value}
                   </h3>
-                  <p className="mt-2 text-[1.7rem] leading-none text-slate-500">
+                  <p className="mt-2 text-[1.7rem] leading-none text-purple-500">
                     {stat.label}
                   </p>
                 </div>

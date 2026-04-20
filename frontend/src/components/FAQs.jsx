@@ -52,13 +52,13 @@ export default function FAQs() {
             We&apos;ve Got Answers
           </h3>
 
-          <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-500 md:text-xl">
+          <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-purple-500 md:text-xl">
             Everything you need to know about the platform, how it works, and
             how families can get the best storytelling experience.
           </p>
         </div>
 
-        <div className="mt-14 rounded-[2rem] border border-violet-100 bg-white/80 p-4 shadow-[0_20px_60px_rgba(139,92,246,0.08)] backdrop-blur-sm md:p-6">
+        <div className="mt-14 rounded-[2rem] border border-moon bg-card p-4 shadow-[0_20px_60px_rgba(139,92,246,0.08)] backdrop-blur-sm md:p-6">
           <div className="space-y-4">
             {faqs.map((faq, index) => {
               const isOpen = openIndex === index;
@@ -66,13 +66,13 @@ export default function FAQs() {
               return (
                 <div
                   key={index}
-                  className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
+                  className="overflow-hidden rounded-2xl border border-card bg-card shadow-[0_8px_24px_rgba(15,23,42,0.05)]"
                 >
                   <button
                     onClick={() => toggleFAQ(index)}
                     className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left md:px-8 md:py-6"
                   >
-                    <span className="text-lg font-semibold text-slate-900 md:text-[1.35rem]">
+                    <span className="text-lg font-semibold text-moon md:text-[1.35rem]">
                       {faq.question}
                     </span>
 
@@ -93,7 +93,7 @@ export default function FAQs() {
                     }`}
                   >
                     <div className="overflow-hidden">
-                      <div className="border-t border-slate-100 px-6 py-5 text-base leading-8 text-slate-600 md:px-8 md:text-lg">
+                      <div className="border-t border-card px-6 py-5 text-base leading-8 text-white md:px-8 md:text-lg">
                         {faq.answer}
                       </div>
                     </div>

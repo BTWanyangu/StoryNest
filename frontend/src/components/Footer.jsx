@@ -1,4 +1,7 @@
 import { Heart, BookOpen, PlaySquare } from "lucide-react";
+import { Link } from "react-router-dom";
+
+import Privacy from "./Privacy";
 
 const quickLinks = [
   { name: "Parent Login", href: "#" },
@@ -45,7 +48,7 @@ export default function Footer() {
                 className="h-12 w-auto object-contain"
               />
               <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                <span className="text-white">Story</span>
+                <span className="text-moon">Story</span>
                 <span className="text-indigo-400">Nest</span>
 
               </h2>
@@ -109,7 +112,7 @@ export default function Footer() {
                   </div>
 
                   <div>
-                    <h4 className="text-lg font-semibold text-white md:text-xl">
+                    <h4 className="text-lg font-semibold text-moon md:text-xl">
                       {item.title}
                     </h4>
                     <p className="mt-1 text-sm text-slate-300 md:text-base">
@@ -132,9 +135,9 @@ export default function Footer() {
               <a href="#" className="text-sm transition hover:text-indigo-300 md:text-base">
                 Terms of Service
               </a>
-              <a href="#" className="text-sm transition hover:text-indigo-300 md:text-base">
+              <Link to="/privacy" className="text-sm transition hover:text-indigo-300 md:text-base">
                 Privacy Policy
-              </a>
+              </Link >
               <a href="#" className="text-sm transition hover:text-indigo-300 md:text-base">
                 Cookie Policy
               </a>

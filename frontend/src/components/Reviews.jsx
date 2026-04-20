@@ -45,7 +45,7 @@ export default function Review() {
             Happy Readers
           </h3>
 
-          <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-slate-500 md:text-xl">
+          <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-purple-500 md:text-xl">
             Join thousands of satisfied families who are making reading an
             exciting adventure with StoryNestAI.
           </p>
@@ -55,7 +55,7 @@ export default function Review() {
           {reviews.map((review) => (
             <div
               key={review.id}
-              className="rounded-3xl border border-violet-100 bg-white p-7 shadow-[0_14px_30px_rgba(139,92,246,0.10)]"
+              className="rounded-3xl border border-moon bg-card p-7 shadow-[0_14px_30px_rgba(139,92,246,0.10)]"
             >
               <div className="flex items-start justify-between">
                 <div className="flex gap-1 text-yellow-400">
@@ -71,7 +71,7 @@ export default function Review() {
                 <Quote className="h-8 w-8 text-violet-200" />
               </div>
 
-              <p className="mt-6 text-lg leading-9 text-slate-600">
+              <p className="mt-6 text-lg leading-9 text-white">
                 {review.text}
               </p>
 
@@ -83,7 +83,7 @@ export default function Review() {
                 />
 
                 <div>
-                  <h4 className="text-lg font-semibold text-slate-900">
+                  <h4 className="text-lg font-semibold text-white">
                     {review.name}
                   </h4>
                   <p className="text-sm text-slate-500">{review.role}</p>
