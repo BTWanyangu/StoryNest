@@ -10,3 +10,5 @@ build/
 *.env.development
 *.env.test
 *.env.production    
+node_modules/
+frontend/node_modules/
