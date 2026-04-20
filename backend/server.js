@@ -2,15 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const Stripe = require('stripe');
-const Anthropic = require('@anthropic-ai/sdk');
 const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || 'placeholder' });
 
-const supabaseAdmin = createClient(process.env.SUPABASE_URL || 'https://placeholder.supabase.co', process.env.SUPABASE_SERVICE_KEY || 'placeholder-service-role');
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL || 'https://placeholder.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY || 'placeholder-service-role'
+);
 
 app.use(cors({ origin: process.env.FRONTEND_URL || true }));
 app.use((req, res, next) => {
@@ -38,7 +39,12 @@ async function getAuthContext(req) {
   }
 
   const userId = data.user.id;
-  const { data: userRecord, error: userRecordError } = await supabaseAdmin.from('users').select('*').eq('id', userId).single();
+  const { data: userRecord, error: userRecordError } = await supabaseAdmin
+    .from('users')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
   if (userRecordError || !userRecord) {
     const dbError = new Error('User profile not found. Make sure the signup trigger created public.users row.');
     dbError.status = 404;
@@ -54,6 +60,7 @@ const db = {
     if (error) throw error;
     return data;
   },
+
   async upgradeToPremium(userId, stripeCustomerId, subscriptionId) {
     const { error } = await supabaseAdmin.from('users').update({
       plan: 'premium',
@@ -62,15 +69,25 @@ const db = {
     }).eq('id', userId);
     if (error) throw error;
   },
+
   async downgradeToFree(stripeCustomerId) {
-    const { error } = await supabaseAdmin.from('users').update({ plan: 'free' }).eq('stripe_customer_id', stripeCustomerId);
+    const { error } = await supabaseAdmin
+      .from('users')
+      .update({ plan: 'free' })
+      .eq('stripe_customer_id', stripeCustomerId);
     if (error) throw error;
   },
+
   async getUserByStripeCustomerId(stripeCustomerId) {
-    const { data, error } = await supabaseAdmin.from('users').select('*').eq('stripe_customer_id', stripeCustomerId).maybeSingle();
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('stripe_customer_id', stripeCustomerId)
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
+
   async logRenewal(stripeCustomerId, invoiceId, amount) {
     const { error } = await supabaseAdmin.from('renewals').upsert({
       stripe_customer_id: stripeCustomerId,
@@ -85,19 +102,45 @@ app.post('/generate-story', async (req, res) => {
   try {
     const { userRecord } = await getAuthContext(req);
     const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
+
+    if (!prompt) {
+      return res.status(400).json({ error: 'Prompt is required' });
+    }
 
     if (userRecord.plan !== 'premium' && userRecord.stories_generated >= 3) {
       return res.status(403).json({ error: 'Free story limit reached. Upgrade to premium.' });
     }
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1200,
-      messages: [{ role: 'user', content: prompt }],
+    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 1200,
+        messages: [{ role: 'user', content: prompt }],
+      }),
     });
 
-    return res.json({ text: message.content?.[0]?.text || '' });
+    const anthropicData = await anthropicResponse.json();
+
+    if (!anthropicResponse.ok) {
+      console.error('[generate-story][anthropic]', anthropicData);
+
+      const error = new Error(
+        anthropicData?.error?.message ||
+        anthropicData?.message ||
+        'Anthropic request failed'
+      );
+      error.status = anthropicResponse.status;
+      throw error;
+    }
+
+    const text = anthropicData?.content?.[0]?.text || '';
+    return res.json({ text });
   } catch (error) {
     console.error('[generate-story]', error);
     return res.status(error.status || 500).json({ error: error.message || 'Could not generate story' });
@@ -217,7 +260,12 @@ app.delete('/delete-account', async (req, res) => {
 
     if (userRecord.stripe_customer_id) {
       try {
-        const subscriptions = await stripe.subscriptions.list({ customer: userRecord.stripe_customer_id, status: 'all', limit: 10 });
+        const subscriptions = await stripe.subscriptions.list({
+          customer: userRecord.stripe_customer_id,
+          status: 'all',
+          limit: 10,
+        });
+
         for (const sub of subscriptions.data) {
           if (!['canceled', 'incomplete_expired'].includes(sub.status)) {
             await stripe.subscriptions.cancel(sub.id);
@@ -258,11 +306,13 @@ app.post('/webhook', async (req, res) => {
         }
         break;
       }
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
         await db.downgradeToFree(subscription.customer);
         break;
       }
+
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
         if (['active', 'trialing', 'past_due'].includes(subscription.status)) {
@@ -275,15 +325,18 @@ app.post('/webhook', async (req, res) => {
         }
         break;
       }
+
       case 'invoice.paid': {
         const invoice = event.data.object;
         await db.logRenewal(invoice.customer, invoice.id, invoice.amount_paid);
         break;
       }
+
       case 'invoice.payment_failed': {
         console.warn('[webhook] Payment failed for customer:', event.data.object.customer);
         break;
       }
+
       default:
         break;
     }
