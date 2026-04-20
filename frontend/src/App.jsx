@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AVATARS, LENGTHS, MORALS, STORY_ICONS, THEMES } from './constants';
 import { supabase } from './lib/supabase';
 import {
@@ -117,6 +118,7 @@ function parseStory(raw, profile, theme, moral, previousStories = []) {
   let title = `${profile.name}'s Magical Adventure`;
   let body = raw.trim();
   const match = raw.match(/^TITLE:\s*(.+)/m);
+
   if (match) {
     title = match[1].trim();
     body = raw.replace(/^TITLE:\s*.+\n?/m, '').trim();
@@ -158,15 +160,17 @@ function StarsBackground() {
   return (
     <div className="pointer-events-none fixed inset-0 overflow-hidden">
       {stars.map((star) => (
-        <div
+        <motion.div
           key={star.id}
           className="absolute rounded-full bg-white animate-twinkle"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: star.opacity }}
+          transition={{ delay: star.delay, duration: 1.2 }}
           style={{
             width: `${star.size}px`,
             height: `${star.size}px`,
             left: `${star.left}%`,
             top: `${star.top}%`,
-            opacity: star.opacity,
             ['--d']: `${star.duration}s`,
             ['--delay']: `${star.delay}s`,
           }}
@@ -177,23 +181,62 @@ function StarsBackground() {
 }
 
 function Toast({ toast }) {
-  if (!toast) return null;
   return (
-    <div
-      className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-3 text-sm font-bold shadow-lg"
-      style={{ background: toast.bg || '#6bcb77', color: toast.bg ? '#fff' : '#0d0d1a' }}
-    >
-      {toast.message}
-    </div>
+    <AnimatePresence>
+      {toast && (
+        <motion.div
+          initial={{ opacity: 0, y: 24, scale: 0.94 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 24, scale: 0.94 }}
+          className="fixed bottom-5 left-1/2 z-50 -translate-x-1/2 rounded-full px-4 py-3 text-sm font-bold shadow-lg"
+          style={{ background: toast.bg || '#6bcb77', color: toast.bg ? '#fff' : '#0d0d1a' }}
+        >
+          {toast.message}
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
 function StoryParagraphs({ text }) {
   return text.split(/\n\n+/).filter(Boolean).map((paragraph, index) => (
-    <p key={index} className="leading-8 text-[15px] text-text/95">
+    <motion.p
+      key={index}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.03 }}
+      className="leading-8 text-[15px] text-text/95"
+    >
       {paragraph}
-    </p>
+    </motion.p>
   ));
+}
+
+function MotionCard({ children, className = '', delay = 0 }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 18 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay }}
+      whileHover={{ y: -4, scale: 1.01 }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+function MotionButton({ children, className = '', ...props }) {
+  return (
+    <motion.button
+      whileHover={{ y: -2, scale: 1.01 }}
+      whileTap={{ scale: 0.98 }}
+      className={className}
+      {...props}
+    >
+      {children}
+    </motion.button>
+  );
 }
 
 export default function App() {
@@ -222,6 +265,7 @@ export default function App() {
   const [subscription, setSubscription] = useState({ plan: 'free', status: 'none' });
   const [loadingAccount, setLoadingAccount] = useState(true);
   const [speakingStoryId, setSpeakingStoryId] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const token = session?.access_token;
   const user = session?.user;
@@ -513,10 +557,6 @@ export default function App() {
 
   async function saveCurrentStory() {
     if (!currentStory) return;
-    if (!isSubscribed) {
-      showToast('Saving to the story library is a Premium feature.', '#ff6b6b');
-      return;
-    }
 
     const alreadySaved = library.some((item) => item.title === currentStory.title && item.body === currentStory.body);
     if (alreadySaved) {
@@ -603,164 +643,290 @@ export default function App() {
   ];
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen bg-night text-text">
       <StarsBackground />
+
       <div className="relative z-10 min-h-screen">
         {screen !== 'dashboard' ? (
           <>
-            <nav className="flex items-center justify-between border-b border-white/10 px-4 py-4 md:px-8">
-              <button onClick={() => setScreen('landing')} className="flex items-center gap-2 font-display text-[1.4rem] text-moon">
-                <span className="text-[1.6rem]">🌙</span> StoryNest
-              </button>
-              <div className="flex items-center gap-3">
-                <button onClick={() => { setAuthMode('login'); setScreen('auth'); }} className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-text transition hover:border-purple2 hover:text-purple3">Sign in</button>
-                <button onClick={() => { setAuthMode('signup'); setScreen('auth'); }} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple transition hover:-translate-y-0.5">Start free</button>
+            <motion.nav
+              initial={{ opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/80 px-4 py-4 backdrop-blur md:px-8"
+            >
+              <MotionButton onClick={() => setScreen('landing')} className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]">
+                <span className="text-[1.5rem] md:text-[1.6rem]">🌙</span> StoryNest
+              </MotionButton>
+
+              <div className="hidden items-center gap-3 sm:flex">
+                <MotionButton onClick={() => { setAuthMode('login'); setScreen('auth'); }} className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-text transition hover:border-purple2 hover:text-purple3">Sign in</MotionButton>
+                <MotionButton onClick={() => { setAuthMode('signup'); setScreen('auth'); }} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple">Start free</MotionButton>
               </div>
-            </nav>
+
+              <MotionButton
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                className="rounded-full border border-white/15 px-3 py-2 text-sm text-text sm:hidden"
+              >
+                ☰
+              </MotionButton>
+            </motion.nav>
+
+            <AnimatePresence>
+              {mobileMenuOpen && screen !== 'dashboard' && (
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  className="border-b border-white/10 bg-night2 px-4 py-4 sm:hidden"
+                >
+                  <div className="flex flex-col gap-3">
+                    <MotionButton onClick={() => { setAuthMode('login'); setScreen('auth'); setMobileMenuOpen(false); }} className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-text">Sign in</MotionButton>
+                    <MotionButton onClick={() => { setAuthMode('signup'); setScreen('auth'); setMobileMenuOpen(false); }} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">Start free</MotionButton>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {screen === 'landing' && (
               <>
-              <main className="mx-auto flex min-h-[calc(100vh-73px)] max-w-6xl flex-col items-center justify-center px-4 py-12 text-center">
-                <span className="mb-4 block text-7xl animate-floaty md:text-8xl">🌙</span>
-                <h1 className="mb-3 max-w-4xl font-display text-4xl leading-tight text-moon md:text-6xl">Every night, a new story with <em className="italic text-purple3">your child</em> as the hero</h1>
-                <p className="mb-8 max-w-2xl text-base leading-8 text-muted md:text-[1.05rem]">StoryNest creates personalised bedtime stories based on your child's name, age, interests, and chosen theme — magical, calming, and ready in seconds.</p>
-                <div className="mb-12 flex flex-wrap justify-center gap-4">
-                  <button onClick={() => { setAuthMode('signup'); setScreen('auth'); }} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-9 py-4 text-base font-extrabold text-night shadow-moon transition hover:-translate-y-0.5">Create free account</button>
-                  <button onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-full border border-white/20 px-9 py-4 text-base font-bold text-text transition hover:border-purple2 hover:text-purple3">See pricing</button>
-                </div>
+                <main className="mx-auto flex min-h-[calc(100vh-73px)] w-full max-w-7xl flex-col items-center justify-center px-4 py-12 text-center sm:px-6 lg:px-8">
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.85 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="mb-4 block text-6xl animate-floaty sm:text-7xl md:text-8xl"
+                  >
+                    🌙
+                  </motion.span>
 
-                <div className="grid w-full max-w-4xl grid-cols-1 gap-4 md:grid-cols-4">
-                  {[
-                    ['✨', 'Personalised', 'Your child is the hero every time'],
-                    ['📚', 'Story series', 'Save stories as episodes with cover art'],
-                    ['🧒', 'Multi-child ready', 'Premium supports up to 3 child profiles'],
-                    ['⚡', 'Fast generation', 'New bedtime stories in 10–20 seconds'],
-                  ].map(([icon, title, desc]) => (
-                    <div key={title} className="rounded-xl2 border border-white/10 bg-card p-5 text-center transition hover:border-purple2/40">
-                      <div className="mb-2 text-3xl">{icon}</div>
-                      <div className="mb-1 text-sm font-bold text-star">{title}</div>
-                      <div className="text-xs leading-6 text-muted">{desc}</div>
-                    </div>
-                  ))}
-                </div>
+                  <motion.h1
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.05 }}
+                    className="mb-3 max-w-5xl font-display text-3xl leading-tight text-moon sm:text-4xl md:text-5xl lg:text-6xl"
+                  >
+                    Every night, a new story with <em className="italic text-purple3">your child</em> as the hero
+                  </motion.h1>
 
-                <section id="pricing" className="mt-14 w-full text-center">
-                  <h2 className="mb-2 font-display text-3xl text-moon">Simple pricing</h2>
-                  <p className="mb-6 text-muted">Try StoryNest free, then unlock unlimited bedtime magic.</p>
-                  <div className="flex flex-wrap justify-center gap-5">
-                    <div className="w-full max-w-[240px] rounded-xl2 border border-white/10 bg-card p-7">
-                      <div className="mb-2 text-base font-extrabold text-star">Free</div>
-                      <div className="text-4xl font-extrabold text-moon">£0<span className="text-sm font-normal text-muted">/month</span></div>
-                      <div className="mt-4 space-y-2 text-left text-sm text-text">
-                        <div>✓ 3 free stories</div>
-                        <div>✓ 1 child profile</div>
-                        <div className="opacity-40">✗ Auto next episode</div>
-                        <div className="opacity-40">✗ Story library & narration</div>
-                      </div>
-                    </div>
-                    <div className="relative w-full max-w-[240px] rounded-xl2 border-2 border-moon bg-card p-7">
-                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">MOST POPULAR</div>
-                      <div className="mb-2 text-base font-extrabold text-star">Premium</div>
-                      <div className="text-4xl font-extrabold text-moon">£5<span className="text-sm font-normal text-muted">/month</span></div>
-                      <div className="mt-4 space-y-2 text-left text-sm text-text">
-                        <div>✓ Unlimited stories</div>
-                        <div>✓ Up to 3 child profiles</div>
-                        <div>✓ Story series library + covers</div>
-                        <div>✓ Auto next episodes + narration</div>
-                      </div>
-                    </div>
+                  <motion.p
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                    className="mb-8 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-[1.05rem]"
+                  >
+                    StoryNest creates personalised bedtime stories based on your child&apos;s name, age, interests, and chosen theme — magical, calming, and ready in seconds.
+                  </motion.p>
+
+                  <motion.div
+                    initial={{ opacity: 0, y: 18 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.15 }}
+                    className="mb-12 flex w-full flex-col justify-center gap-4 sm:w-auto sm:flex-row"
+                  >
+                    <MotionButton onClick={() => { setAuthMode('signup'); setScreen('auth'); }} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon">
+                      Create free account
+                    </MotionButton>
+                    <MotionButton onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-full border border-white/20 px-8 py-4 text-base font-bold text-text transition hover:border-purple2 hover:text-purple3">
+                      See pricing
+                    </MotionButton>
+                  </motion.div>
+
+                  <div className="grid w-full max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    {[
+                      ['✨', 'Personalised', 'Your child is the hero every time'],
+                      ['📚', 'Story series', 'Save stories as episodes with cover art'],
+                      ['🧒', 'Multi-child ready', 'Premium supports up to 3 child profiles'],
+                      ['⚡', 'Fast generation', 'New bedtime stories in 10–20 seconds'],
+                    ].map(([icon, title, desc], index) => (
+                      <MotionCard
+                        key={title}
+                        delay={0.06 * index}
+                        className="rounded-xl2 border border-white/10 bg-card p-5 text-center transition hover:border-purple2/40"
+                      >
+                        <div className="mb-2 text-3xl">{icon}</div>
+                        <div className="mb-1 text-sm font-bold text-star">{title}</div>
+                        <div className="text-xs leading-6 text-muted">{desc}</div>
+                      </MotionCard>
+                    ))}
                   </div>
-                  
-                  
-                </section>
-                
-              </main>
-              <Stats />
-              <Review />
-              <FAQs />
-              <Footer />
+
+                  <motion.section
+                    id="pricing"
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="mt-14 w-full text-center"
+                  >
+                    <h2 className="mb-2 font-display text-3xl text-moon">Simple pricing</h2>
+                    <p className="mb-6 text-muted">Try StoryNest free, then unlock unlimited bedtime magic.</p>
+
+                    <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
+                      <MotionCard className="w-full max-w-[300px] rounded-xl2 border border-white/10 bg-card p-7">
+                        <div className="mb-2 text-base font-extrabold text-star">Free</div>
+                        <div className="text-4xl font-extrabold text-moon">£0<span className="text-sm font-normal text-muted">/month</span></div>
+                        <div className="mt-4 space-y-2 text-left text-sm text-text">
+                          <div>✓ 3 free stories</div>
+                          <div>✓ 1 child profile</div>
+                          <div>✓ Save up to 3 free stories</div>
+                          <div className="opacity-40">✗ Auto next episode & narration</div>
+                        </div>
+                      </MotionCard>
+
+                      <MotionCard className="relative w-full max-w-[300px] rounded-xl2 border-2 border-moon bg-card p-7">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
+                          MOST POPULAR
+                        </div>
+                        <div className="mb-2 text-base font-extrabold text-star">Premium</div>
+                        <div className="text-4xl font-extrabold text-moon">£5<span className="text-sm font-normal text-muted">/month</span></div>
+                        <div className="mt-4 space-y-2 text-left text-sm text-text">
+                          <div>✓ Unlimited stories</div>
+                          <div>✓ Up to 3 child profiles</div>
+                          <div>✓ Story series library + covers</div>
+                          <div>✓ Auto next episodes + narration</div>
+                        </div>
+                      </MotionCard>
+                    </div>
+                  </motion.section>
+                </main>
+
+                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+                  <Stats />
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+                  <Review />
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+                  <FAQs />
+                </motion.div>
+                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
+                  <Footer />
+                </motion.div>
               </>
             )}
 
             {screen === 'auth' && (
-              <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-12">
-                <div className="w-full max-w-md rounded-xl2 border border-white/10 bg-card p-8">
-                  <h2 className="mb-1 text-center font-display text-3xl text-moon">{authMode === 'signup' ? 'Create your account' : 'Welcome back'}</h2>
-                  <p className="mb-7 text-center text-sm text-muted">{authMode === 'signup' ? 'Start with 3 free stories — no card needed' : 'Sign in to your StoryNest'}</p>
+              <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+                <motion.div
+                  initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  className="w-full max-w-md rounded-xl2 border border-white/10 bg-card p-6 sm:p-8"
+                >
+                  <h2 className="mb-1 text-center font-display text-2xl text-moon sm:text-3xl">
+                    {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
+                  </h2>
+                  <p className="mb-7 text-center text-sm text-muted">
+                    {authMode === 'signup' ? 'Start with 3 free stories — no card needed' : 'Sign in to your StoryNest'}
+                  </p>
+
                   {authMode === 'signup' && (
                     <div className="mb-4">
                       <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Your name</label>
                       <input value={authForm.name} onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Jane Parent" />
                     </div>
                   )}
+
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Email</label>
                     <input value={authForm.email} onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="you@example.com" />
                   </div>
+
                   <div className="mb-4">
                     <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Password</label>
                     <input type="password" value={authForm.password} onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="At least 6 characters" onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()} />
                   </div>
+
                   {authMode === 'signup' && (
                     <label className="mb-4 flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted">
                       <input type="checkbox" checked={authForm.parentConsent} onChange={(e) => setAuthForm((prev) => ({ ...prev, parentConsent: e.target.checked }))} className="mt-1" />
                       I confirm I am a parent or guardian creating this account and I agree to the Privacy Policy and Terms.
                     </label>
                   )}
+
                   {authError && <div className="mb-4 text-sm text-coral">{authError}</div>}
-                  <button onClick={handleAuthSubmit} className="w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple transition hover:-translate-y-0.5">{authMode === 'signup' ? 'Create account' : 'Sign in'}</button>
+
+                  <MotionButton onClick={handleAuthSubmit} className="w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple">
+                    {authMode === 'signup' ? 'Create account' : 'Sign in'}
+                  </MotionButton>
+
                   <div className="mt-4 text-center text-sm text-muted">
                     {authMode === 'signup' ? 'Already have an account?' : `Don't have an account?`}{' '}
-                    <button onClick={() => setAuthMode((prev) => prev === 'signup' ? 'login' : 'signup')} className="text-purple3 underline">{authMode === 'signup' ? 'Sign in' : 'Sign up free'}</button>
+                    <button onClick={() => setAuthMode((prev) => prev === 'signup' ? 'login' : 'signup')} className="text-purple3 underline">
+                      {authMode === 'signup' ? 'Sign in' : 'Sign up free'}
+                    </button>
                   </div>
-                </div>
+                </motion.div>
               </main>
             )}
           </>
         ) : (
           <div className="flex min-h-screen flex-col">
-            <nav className="flex items-center justify-between border-b border-white/10 px-4 py-3 md:px-6">
-              <div className="flex items-center gap-2 font-display text-[1.4rem] text-moon"><span className="text-[1.6rem]">🌙</span> StoryNest</div>
-              <div className="text-sm text-muted">Hi, {firstName} 👋</div>
-            </nav>
-            <div className="grid flex-1 md:grid-cols-[220px_1fr]">
-              <aside className="order-2 border-t border-white/10 bg-night2 p-3 md:order-1 md:border-r md:border-t-0 md:p-4">
-                <div className="grid grid-cols-4 gap-2 md:flex md:flex-col">
-                  {tabItems.map((item) => (
-                    <button key={item.id} onClick={() => setSelectedTab(item.id)} className={classNames('flex items-center justify-center gap-2 rounded-sm2 px-3 py-3 text-sm font-bold transition md:justify-start', selectedTab === item.id ? 'bg-purple/20 text-purple3' : 'text-muted hover:bg-white/5 hover:text-text')}>
+            <motion.nav
+              initial={{ opacity: 0, y: -14 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/85 px-4 py-3 backdrop-blur md:px-6"
+            >
+              <div className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]"><span className="text-[1.5rem] md:text-[1.6rem]">🌙</span> StoryNest</div>
+              <div className="text-xs text-muted sm:text-sm">Hi, {firstName} 👋</div>
+            </motion.nav>
+
+            <div className="grid flex-1 lg:grid-cols-[240px_1fr]">
+              <aside className="order-2 border-t border-white/10 bg-night2 p-3 lg:order-1 lg:border-r lg:border-t-0 lg:p-4">
+                <div className="grid grid-cols-4 gap-2 lg:flex lg:flex-col">
+                  {tabItems.map((item, index) => (
+                    <motion.button
+                      key={item.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.04 }}
+                      onClick={() => setSelectedTab(item.id)}
+                      whileHover={{ scale: 1.02, x: 2 }}
+                      whileTap={{ scale: 0.98 }}
+                      className={classNames(
+                        'flex items-center justify-center gap-2 rounded-sm2 px-3 py-3 text-sm font-bold transition lg:justify-start',
+                        selectedTab === item.id ? 'bg-purple/20 text-purple3' : 'text-muted hover:bg-white/5 hover:text-text'
+                      )}
+                    >
                       <span>{item.icon}</span>
-                      <span className="hidden md:inline">{item.label}</span>
-                    </button>
+                      <span className="hidden lg:inline">{item.label}</span>
+                    </motion.button>
                   ))}
                 </div>
               </aside>
 
-              <main className="order-1 story-scroll max-h-[calc(100vh-61px)] overflow-y-auto p-5 md:order-2 md:p-8">
+              <main className="order-1 story-scroll max-h-[calc(100vh-61px)] overflow-y-auto p-4 sm:p-5 lg:order-2 lg:p-8">
                 {selectedTab === 'generate' && (
-                  <section>
-                    <h2 className="mb-1 font-display text-3xl text-moon">Create a new story</h2>
-                    <p className="mb-6 text-sm leading-6 text-muted">Choose a child, theme, and length — then let StoryNest write tonight's bedtime story.</p>
+                  <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Create a new story</h2>
+                    <p className="mb-6 text-sm leading-6 text-muted">Choose a child, theme, and length — then let StoryNest write tonight&apos;s bedtime story.</p>
 
                     {!selectedProfile && (
-                      <div className="mb-6 rounded-xl2 border border-dashed border-white/15 bg-card/30 p-8 text-center">
+                      <MotionCard className="mb-6 rounded-xl2 border border-dashed border-white/15 bg-card/30 p-8 text-center">
                         <div className="mb-3 text-5xl">🧒</div>
                         <div className="mb-2 font-bold text-star">No children yet</div>
                         <div className="mb-4 text-sm text-muted">Add your first child profile to start generating stories.</div>
-                        <button onClick={() => setProfileModalOpen(true)} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">Add your first child</button>
-                      </div>
+                        <MotionButton onClick={() => setProfileModalOpen(true)} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">
+                          Add your first child
+                        </MotionButton>
+                      </MotionCard>
                     )}
 
                     <div className={classNames('space-y-6', !selectedProfile && 'opacity-35')}>
                       <div>
                         <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Choose child</div>
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                          {profiles.map((profile) => (
-                            <button
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                          {profiles.map((profile, index) => (
+                            <motion.button
                               key={profile.id}
+                              initial={{ opacity: 0, y: 14 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ delay: index * 0.04 }}
                               onClick={() => setSelectedProfileId(profile.id)}
+                              whileHover={{ y: -4, scale: 1.01 }}
+                              whileTap={{ scale: 0.98 }}
                               className={classNames(
                                 'relative rounded-xl2 border-2 p-5 text-center transition',
-                                selectedProfileId === profile.id ? 'border-moon bg-card shadow-[0_0_20px_rgba(255,217,125,.18)]' : 'border-transparent bg-card hover:-translate-y-0.5 hover:border-purple'
+                                selectedProfileId === profile.id
+                                  ? 'border-moon bg-card shadow-[0_0_20px_rgba(255,217,125,.18)]'
+                                  : 'border-transparent bg-card hover:border-purple'
                               )}
                             >
                               <div className="mb-2 text-5xl">{profile.avatar}</div>
@@ -768,14 +934,14 @@ export default function App() {
                               <div className="text-xs text-muted">{profile.age} years old</div>
                               {profile.interests && <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>}
                               {profile.companion_name && <div className="mt-1 text-[11px] text-moon">Companion: {profile.companion_name}</div>}
-                            </button>
+                            </motion.button>
                           ))}
 
                           {profiles.length < maxProfiles && (
-                            <button onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
+                            <MotionButton onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
                               <div className="mb-2 text-4xl">➕</div>
                               <div className="font-bold">Add child</div>
-                            </button>
+                            </MotionButton>
                           )}
                         </div>
                       </div>
@@ -784,160 +950,177 @@ export default function App() {
                       <OptionGroup title="Length" options={LENGTHS} value={selectedLength} onChange={setSelectedLength} />
                       <OptionGroup title="Optional moral" options={MORALS} value={selectedMoral} onChange={(value) => setSelectedMoral(value === selectedMoral ? '' : value)} />
 
-                      <div>
+                      <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
                         <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Optional custom wish</label>
                         <textarea value={wish} onChange={(e) => setWish(e.target.value)} rows={3} className="w-full rounded-xl2 border border-white/10 bg-card px-4 py-3 text-sm text-text outline-none transition focus:border-purple2" placeholder="e.g. Please include a friendly fox and a glowing lantern." />
-                      </div>
+                      </MotionCard>
 
                       {selectedProfile && selectedProfileStories.length > 0 && (
-                        <div className="rounded-xl2 border border-white/10 bg-card p-4">
+                        <MotionCard className="rounded-xl2 border border-white/10 bg-card p-4">
                           <div className="mb-1 font-bold text-star">{getSeriesLabel(selectedProfile)}</div>
                           <div className="text-sm text-muted">
                             {selectedProfileStories.length} saved episode{selectedProfileStories.length === 1 ? '' : 's'} in this story world.
                           </div>
-                        </div>
+                        </MotionCard>
                       )}
 
                       {!isSubscribed && (
-                        <div className="rounded-xl2 border border-moon/25 bg-card p-4">
+                        <MotionCard className="rounded-xl2 border border-moon/25 bg-card p-4">
                           <div className="mb-1 font-bold text-moon">Free stories used: {storiesGenerated}/3</div>
                           <div className="mb-3 text-sm text-muted">After 3 stories, upgrade to Premium for unlimited stories, story series, narration, and up to 3 child profiles.</div>
-                          {storiesGenerated >= 3 && <button onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">Subscribe — £5/mo</button>}
-                        </div>
+                          {storiesGenerated >= 3 && (
+                            <MotionButton onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">
+                              Subscribe — £5/mo
+                            </MotionButton>
+                          )}
+                        </MotionCard>
                       )}
 
-                      <div className="flex flex-wrap gap-3">
-                        <button
+                      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                        <MotionButton
                           disabled={!selectedProfile || loadingStory}
                           onClick={() => handleGenerateStory(false)}
-                          className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon transition disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           {loadingStory ? 'Generating your story...' : 'Generate story ✨'}
-                        </button>
+                        </MotionButton>
 
-                        <button
+                        <MotionButton
                           disabled={!selectedProfile || loadingStory}
                           onClick={() => handleGenerateStory(true)}
-                          className="rounded-full border border-purple2/40 bg-card px-6 py-4 text-base font-bold text-purple3 transition hover:border-purple2 disabled:cursor-not-allowed disabled:opacity-60"
+                          className="rounded-full border border-purple2/40 bg-card px-6 py-4 text-base font-bold text-purple3 transition disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           ⚡ Auto next episode
-                        </button>
+                        </MotionButton>
                       </div>
                     </div>
 
-                    {currentStory && (
-                      <div className="mt-8 rounded-xl2 border border-white/10 bg-card p-6">
-                        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                          <div className="flex items-start gap-4">
-                            {currentStory.cover_image ? (
-                              <img
-                                src={currentStory.cover_image}
-                                alt={currentStory.title}
-                                className="h-20 w-20 rounded-xl object-cover border border-white/10 bg-night3"
-                              />
-                            ) : (
-                              <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
-                                📖
-                              </div>
-                            )}
-
-                            <div>
-                              <div className="font-display text-3xl text-moon">{currentStory.title}</div>
-                              <div className="text-sm text-muted">
-                                {currentStory.child_avatar} {currentStory.child_name} · {currentStory.theme} · Episode {currentStory.episode_number || 1} · {formatStoryDate(currentStory.created_at)}
-                              </div>
-                              {selectedProfile?.companion_name && (
-                                <div className="mt-1 text-xs text-purple3">
-                                  Companion: {selectedProfile.companion_name}
+                    <AnimatePresence>
+                      {currentStory && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 22 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 22 }}
+                          className="mt-8 rounded-xl2 border border-white/10 bg-card p-5 sm:p-6"
+                        >
+                          <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                            <div className="flex flex-col items-start gap-4 sm:flex-row">
+                              {currentStory.cover_image ? (
+                                <img
+                                  src={currentStory.cover_image}
+                                  alt={currentStory.title}
+                                  className="h-20 w-20 rounded-xl border border-white/10 bg-night3 object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
+                                  📖
                                 </div>
                               )}
+
+                              <div>
+                                <div className="font-display text-2xl text-moon sm:text-3xl">{currentStory.title}</div>
+                                <div className="text-sm text-muted">
+                                  {currentStory.child_avatar} {currentStory.child_name} · {currentStory.theme} · Episode {currentStory.episode_number || 1} · {formatStoryDate(currentStory.created_at)}
+                                </div>
+                                {selectedProfile?.companion_name && (
+                                  <div className="mt-1 text-xs text-purple3">Companion: {selectedProfile.companion_name}</div>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="space-y-5"><StoryParagraphs text={currentStory.body} /></div>
+                          <div className="space-y-5">
+                            <StoryParagraphs text={currentStory.body} />
+                          </div>
 
-                        <div className="mt-6 flex flex-wrap gap-3">
-                          <button onClick={saveCurrentStory} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">💾 Save to library</button>
-                          <button onClick={() => handleGenerateStory(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">🔄 Generate another</button>
-                          <button onClick={() => handleGenerateStory(true)} className="rounded-full border border-purple2/40 px-5 py-2.5 text-sm font-bold text-purple3">⚡ Next episode</button>
-                          <button
-                            onClick={() => speakStory({ ...currentStory, id: currentStory.id || currentStory.title })}
-                            className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
-                          >
-                            {speakingStoryId === (currentStory.id || currentStory.title) ? '🔊 Playing...' : '🔊 Voice narration'}
-                          </button>
-                          {speakingStoryId === (currentStory.id || currentStory.title) && (
-                            <button onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</button>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </section>
+                          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                            <MotionButton onClick={saveCurrentStory} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">💾 Save to library</MotionButton>
+                            <MotionButton onClick={() => handleGenerateStory(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">🔄 Generate another</MotionButton>
+                            <MotionButton onClick={() => handleGenerateStory(true)} className="rounded-full border border-purple2/40 px-5 py-2.5 text-sm font-bold text-purple3">⚡ Next episode</MotionButton>
+                            <MotionButton onClick={() => speakStory({ ...currentStory, id: currentStory.id || currentStory.title })} className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon">
+                              {speakingStoryId === (currentStory.id || currentStory.title) ? '🔊 Playing...' : '🔊 Voice narration'}
+                            </MotionButton>
+                            {speakingStoryId === (currentStory.id || currentStory.title) && (
+                              <MotionButton onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</MotionButton>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.section>
                 )}
 
                 {selectedTab === 'library' && (
-                  <section>
-                    <h2 className="mb-1 font-display text-3xl text-moon">Story library</h2>
-                    <p className="mb-6 text-sm leading-6 text-muted">Saved bedtime stories live here as ongoing episodes and story series.</p>
+                  <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Story library</h2>
+                    <p className="mb-6 text-sm leading-6 text-muted">
+                      {isSubscribed
+                        ? 'Saved bedtime stories live here as ongoing episodes and story series.'
+                        : 'Your saved free stories live here for easy re-reading.'}
+                    </p>
 
-                    {!isSubscribed ? (
-                      <div className="rounded-xl2 border border-moon/25 bg-card p-10 text-center">
-                        <div className="mb-3 text-5xl">📚</div>
-                        <div className="mb-2 font-bold text-star">Story library is Premium</div>
-                        <div className="mb-4 text-sm text-muted">Upgrade to unlock saved episodes, series covers, continuity, and voice narration.</div>
-                        <button onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">Upgrade to Premium</button>
-                      </div>
-                    ) : library.length === 0 ? (
-                      <div className="rounded-xl2 border border-white/10 bg-card p-10 text-center">
+                    {library.length === 0 ? (
+                      <MotionCard className="rounded-xl2 border border-white/10 bg-card p-10 text-center">
                         <div className="mb-3 text-5xl">📚</div>
                         <div className="mb-2 font-bold text-star">Your library is empty</div>
-                        <div className="mb-4 text-sm text-muted">Generate a story and save it — it will live here as part of your child’s ongoing story world.</div>
-                        <button onClick={() => setSelectedTab('generate')} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">Generate first story →</button>
-                      </div>
+                        <div className="mb-4 text-sm text-muted">Generate a story and save it — it will appear here for your child to revisit.</div>
+                        <MotionButton onClick={() => setSelectedTab('generate')} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">
+                          Generate first story →
+                        </MotionButton>
+                      </MotionCard>
                     ) : (
                       <div className="space-y-8">
-                        {groupedLibrary.map((series) => {
+                        {groupedLibrary.map((series, seriesIndex) => {
                           const first = series[0];
                           const seriesProfile = profiles.find((p) => p.id === first?.child_id);
                           const seriesTitle = seriesProfile ? getSeriesLabel(seriesProfile) : `${first?.child_name || 'Story'} Adventures`;
 
                           return (
-                            <div key={first?.series_id || first?.id} className="rounded-xl2 border border-white/10 bg-card p-5">
-                              <div className="mb-5 flex items-center gap-4">
+                            <MotionCard
+                              key={first?.series_id || first?.id}
+                              delay={seriesIndex * 0.05}
+                              className="rounded-xl2 border border-white/10 bg-card p-5"
+                            >
+                              <div className="mb-5 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
                                 {first?.cover_image ? (
                                   <img
                                     src={first.cover_image}
                                     alt={seriesTitle}
-                                    className="h-20 w-20 rounded-xl object-cover border border-white/10 bg-night3"
+                                    className="h-20 w-20 rounded-xl border border-white/10 bg-night3 object-cover"
                                   />
                                 ) : (
                                   <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
                                     {STORY_ICONS[0]}
                                   </div>
                                 )}
+
                                 <div>
-                                  <div className="font-display text-2xl text-moon">{seriesTitle}</div>
+                                  <div className="font-display text-xl text-moon sm:text-2xl">{seriesTitle}</div>
                                   <div className="text-sm text-muted">
                                     {series.length} episode{series.length === 1 ? '' : 's'} · {first?.child_avatar} {first?.child_name}
                                   </div>
                                 </div>
                               </div>
 
-                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                                {series.map((story) => {
+                              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                {series.map((story, index) => {
                                   const libraryIndex = library.findIndex((item) => item.id === story.id);
                                   return (
-                                    <button
+                                    <motion.button
                                       key={story.id}
                                       onClick={() => setStoryModalIndex(libraryIndex)}
-                                      className="rounded-xl2 border border-white/10 bg-night3/40 p-4 text-left transition hover:-translate-y-0.5 hover:border-purple2/40"
+                                      whileHover={{ y: -5, scale: 1.01 }}
+                                      whileTap={{ scale: 0.98 }}
+                                      initial={{ opacity: 0, y: 14 }}
+                                      animate={{ opacity: 1, y: 0 }}
+                                      transition={{ delay: index * 0.03 }}
+                                      className="rounded-xl2 border border-white/10 bg-night3/40 p-4 text-left transition hover:border-purple2/40"
                                     >
                                       {story.cover_image ? (
                                         <img
                                           src={story.cover_image}
                                           alt={story.title}
-                                          className="mb-3 h-36 w-full rounded-lg object-cover border border-white/10 bg-night3"
+                                          className="mb-3 h-36 w-full rounded-lg border border-white/10 bg-night3 object-cover"
                                         />
                                       ) : (
                                         <div className="mb-3 flex h-36 w-full items-center justify-center rounded-lg border border-white/10 bg-night3 text-4xl">
@@ -952,26 +1135,41 @@ export default function App() {
                                       <div className="mb-3 text-sm text-purple3">{story.child_avatar} {story.child_name}</div>
                                       <div className="mb-4 line-clamp-3 text-sm leading-6 text-muted">{story.body}</div>
                                       <div className="text-xs text-muted">{formatStoryDate(story.created_at)}</div>
-                                    </button>
+                                    </motion.button>
                                   );
                                 })}
                               </div>
-                            </div>
+
+                              {!isSubscribed && (
+                                <div className="mt-5 rounded-xl border border-moon/20 bg-moon/5 p-4">
+                                  <div className="mb-1 font-bold text-moon">Upgrade to Premium</div>
+                                  <div className="mb-3 text-sm text-muted">
+                                    Unlock unlimited stories, auto next episodes, voice narration, continuity, and up to 3 child profiles.
+                                  </div>
+                                  <MotionButton onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">
+                                    Upgrade — £5/mo
+                                  </MotionButton>
+                                </div>
+                              )}
+                            </MotionCard>
                           );
                         })}
                       </div>
                     )}
-                  </section>
+                  </motion.section>
                 )}
 
                 {selectedTab === 'profiles' && (
-                  <section>
-                    <h2 className="mb-1 font-display text-3xl text-moon">Children</h2>
+                  <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Children</h2>
                     <p className="mb-6 text-sm leading-6 text-muted">Manage child profiles, avatars, ages, interests, and recurring companions.</p>
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                      {profiles.map((profile) => (
-                        <div key={profile.id} className="relative rounded-xl2 border border-white/10 bg-card p-5 text-center">
-                          <button onClick={() => removeProfile(profile.id)} className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-coral/15 text-xs text-coral">✕</button>
+
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {profiles.map((profile, index) => (
+                        <MotionCard key={profile.id} delay={index * 0.04} className="relative rounded-xl2 border border-white/10 bg-card p-5 text-center">
+                          <MotionButton onClick={() => removeProfile(profile.id)} className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-coral/15 text-xs text-coral">
+                            ✕
+                          </MotionButton>
                           <div className="mb-2 text-5xl">{profile.avatar}</div>
                           <div className="text-base font-extrabold text-star">{profile.name}</div>
                           <div className="text-xs text-muted">{profile.age} years old</div>
@@ -985,29 +1183,30 @@ export default function App() {
                               </div>
                             </div>
                           )}
-                        </div>
+                        </MotionCard>
                       ))}
 
                       {profiles.length < maxProfiles && (
-                        <button onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
+                        <MotionButton onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
                           <div className="mb-2 text-4xl">➕</div>
                           <div className="font-bold">Add child</div>
-                        </button>
+                        </MotionButton>
                       )}
                     </div>
-                  </section>
+                  </motion.section>
                 )}
 
                 {selectedTab === 'account' && (
-                  <section>
-                    <h2 className="mb-1 font-display text-3xl text-moon">Account</h2>
+                  <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Account</h2>
                     <p className="mb-6 text-sm leading-6 text-muted">View your plan, usage, and billing controls.</p>
+
                     {loadingAccount ? (
                       <div className="text-sm text-muted">Loading account...</div>
                     ) : (
-                      <div className="grid gap-6 lg:grid-cols-[1.15fr_.85fr]">
-                        <div className="rounded-xl2 border border-white/10 bg-card p-6">
-                          <div className="mb-5 grid grid-cols-3 gap-4">
+                      <div className="grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
+                        <MotionCard className="rounded-xl2 border border-white/10 bg-card p-5 sm:p-6">
+                          <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
                             <StatBox label="Stories" value={storiesGenerated} />
                             <StatBox label="Saved" value={library.length} />
                             <StatBox label="Children" value={profiles.length} />
@@ -1015,18 +1214,19 @@ export default function App() {
                           <InfoRow label="Name" value={userRecord?.name || user?.user_metadata?.name || '—'} />
                           <InfoRow label="Email" value={user?.email || '—'} />
                           <InfoRow label="Member since" value={accountSince} />
-                          <div className="mt-6 flex flex-wrap gap-3">
-                            <button onClick={signOut} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Sign out</button>
-                            {isSubscribed && <button onClick={openBillingPortal} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Manage billing</button>}
+                          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                            <MotionButton onClick={signOut} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Sign out</MotionButton>
+                            {isSubscribed && <MotionButton onClick={openBillingPortal} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Manage billing</MotionButton>}
                           </div>
+
                           <div className="mt-8 border-t border-coral/15 pt-6">
                             <div className="mb-2 text-sm font-extrabold text-coral">Danger zone</div>
                             <div className="mb-4 text-sm leading-6 text-muted">Permanently deletes your account, all child profiles, and all saved stories. This cannot be undone.</div>
-                            <button onClick={handleDeleteAccount} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete my account</button>
+                            <MotionButton onClick={handleDeleteAccount} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete my account</MotionButton>
                           </div>
-                        </div>
+                        </MotionCard>
 
-                        <div className="rounded-xl2 border border-white/10 bg-card p-6">
+                        <MotionCard className="rounded-xl2 border border-white/10 bg-card p-5 sm:p-6">
                           <div className="mb-1 text-sm font-extrabold uppercase tracking-[0.06em] text-purple3">Current plan</div>
                           <div className="mb-2 font-display text-2xl text-star">{isSubscribed ? 'Premium Plan' : 'Free Plan'}</div>
                           <div className="mb-4 text-4xl font-extrabold text-moon">{isSubscribed ? '£5' : '£0'}<span className="text-sm font-normal text-muted">/month</span></div>
@@ -1041,165 +1241,188 @@ export default function App() {
                             ) : (
                               <>
                                 <div>✓ 3 free stories to try</div>
-                                <div className="opacity-40">✗ Story library & series</div>
+                                <div>✓ Save up to 3 free stories</div>
                                 <div className="opacity-40">✗ Auto next episode</div>
                                 <div className="opacity-40">✗ Voice narration & multiple children</div>
                               </>
                             )}
                           </div>
-                          <button onClick={isSubscribed ? openBillingPortal : startCheckout} className={classNames('mt-6 w-full rounded-full px-5 py-3 text-sm font-bold', isSubscribed ? 'bg-white/10 text-text' : 'bg-gradient-to-br from-moon2 to-moon text-night')}>
+                          <MotionButton onClick={isSubscribed ? openBillingPortal : startCheckout} className={classNames('mt-6 w-full rounded-full px-5 py-3 text-sm font-bold', isSubscribed ? 'bg-white/10 text-text' : 'bg-gradient-to-br from-moon2 to-moon text-night')}>
                             {isSubscribed ? 'Manage subscription' : '✨ Upgrade to Premium — £5/month'}
-                          </button>
-                        </div>
+                          </MotionButton>
+                        </MotionCard>
                       </div>
                     )}
-                  </section>
+                  </motion.section>
                 )}
               </main>
             </div>
           </div>
         )}
 
-        {profileModalOpen && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-            <div className="w-full max-w-lg rounded-xl2 border border-white/10 bg-card p-6">
-              <div className="mb-4 flex items-center justify-between">
-                <div className="font-display text-2xl text-moon">Add child profile</div>
-                <button onClick={() => setProfileModalOpen(false)} className="text-muted">✕</button>
-              </div>
-
-              <div className="mb-4">
-                <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Name</label>
-                <input
-                  value={profileForm.name}
-                  onChange={(e) => {
-                    setProfileForm((prev) => ({ ...prev, name: e.target.value }));
-                    setProfileError('');
-                  }}
-                  className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
-                  placeholder="Mia"
-                />
-                {profileError && <div className="mt-2 text-sm text-coral">{profileError}</div>}
-              </div>
-
-              <div className="mb-4 grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Age</label>
-                  <select value={profileForm.age} onChange={(e) => setProfileForm((prev) => ({ ...prev, age: Number(e.target.value) }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2">
-                    {Array.from({ length: 10 }, (_, index) => index + 3).map((age) => <option key={age} value={age}>{age}</option>)}
-                  </select>
+        <AnimatePresence>
+          {profileModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.96 }}
+                className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl2 border border-white/10 bg-card p-5 sm:p-6"
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="font-display text-2xl text-moon">Add child profile</div>
+                  <MotionButton onClick={() => setProfileModalOpen(false)} className="text-muted">✕</MotionButton>
                 </div>
 
-                <div>
-                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Interests</label>
-                  <input value={profileForm.interests} onChange={(e) => setProfileForm((prev) => ({ ...prev, interests: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragons, stars, foxes" />
-                </div>
-              </div>
-
-              <div className="mb-4 rounded-xl2 border border-white/10 bg-night3/40 p-4">
-                <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-moon">Recurring companion / sidekick</div>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion name</label>
-                    <input value={profileForm.companion_name} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Zara" />
-                  </div>
-
-                  <div>
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion type</label>
-                    <input value={profileForm.companion_type} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragon, robot, fairy" />
-                  </div>
-                </div>
-
-                <div className="mt-4">
-                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion personality</label>
-                  <input value={profileForm.companion_trait} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="brave but easily startled" />
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Avatar</label>
-                <div className="grid grid-cols-5 gap-3">
-                  {AVATARS.map((avatar) => (
-                    <button key={avatar} onClick={() => setProfileForm((prev) => ({ ...prev, avatar }))} className={classNames('rounded-sm2 border px-2 py-3 text-2xl transition', profileForm.avatar === avatar ? 'border-moon bg-moon/10' : 'border-white/10 bg-night3')}>
-                      {avatar}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mb-4 rounded-sm2 bg-night3/60 p-4">
-                <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted">
+                <div className="mb-4">
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Name</label>
                   <input
-                    type="checkbox"
-                    checked={profileForm.consent}
+                    value={profileForm.name}
                     onChange={(e) => {
-                      setProfileForm((prev) => ({ ...prev, consent: e.target.checked }));
-                      setConsentError('');
+                      setProfileForm((prev) => ({ ...prev, name: e.target.value }));
+                      setProfileError('');
                     }}
-                    className="mt-1"
+                    className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                    placeholder="Mia"
                   />
-                  I confirm I am the parent or guardian of this child and consent to their personal data being processed as described in the Privacy Policy.
-                </label>
-                {consentError && <div className="mt-2 text-sm text-coral">{consentError}</div>}
-              </div>
+                  {profileError && <div className="mt-2 text-sm text-coral">{profileError}</div>}
+                </div>
 
-              <div className="flex justify-end gap-3">
-                <button onClick={() => setProfileModalOpen(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Cancel</button>
-                <button onClick={saveProfile} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Add child ✓</button>
-              </div>
-            </div>
-          </div>
-        )}
+                <div className="mb-4 grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Age</label>
+                    <select value={profileForm.age} onChange={(e) => setProfileForm((prev) => ({ ...prev, age: Number(e.target.value) }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2">
+                      {Array.from({ length: 10 }, (_, index) => index + 3).map((age) => <option key={age} value={age}>{age}</option>)}
+                    </select>
+                  </div>
 
-        {storyModalIndex !== null && library[storyModalIndex] && (
-          <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4">
-            <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl2 border border-white/10 bg-card p-6">
-              <div className="mb-4 flex items-start justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  {library[storyModalIndex].cover_image ? (
-                    <img
-                      src={library[storyModalIndex].cover_image}
-                      alt={library[storyModalIndex].title}
-                      className="h-20 w-20 rounded-xl object-cover border border-white/10 bg-night3"
-                    />
-                  ) : (
-                    <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
-                      📖
+                  <div>
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Interests</label>
+                    <input value={profileForm.interests} onChange={(e) => setProfileForm((prev) => ({ ...prev, interests: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragons, stars, foxes" />
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-xl2 border border-white/10 bg-night3/40 p-4">
+                  <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-moon">Recurring companion / sidekick</div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion name</label>
+                      <input value={profileForm.companion_name} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Zara" />
                     </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion type</label>
+                      <input value={profileForm.companion_type} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragon, robot, fairy" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion personality</label>
+                    <input value={profileForm.companion_trait} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="brave but easily startled" />
+                  </div>
+                </div>
+
+                <div className="mb-4">
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Avatar</label>
+                  <div className="grid grid-cols-5 gap-3">
+                    {AVATARS.map((avatar) => (
+                      <MotionButton key={avatar} onClick={() => setProfileForm((prev) => ({ ...prev, avatar }))} className={classNames('rounded-sm2 border px-2 py-3 text-2xl transition', profileForm.avatar === avatar ? 'border-moon bg-moon/10' : 'border-white/10 bg-night3')}>
+                        {avatar}
+                      </MotionButton>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-sm2 bg-night3/60 p-4">
+                  <label className="flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted">
+                    <input
+                      type="checkbox"
+                      checked={profileForm.consent}
+                      onChange={(e) => {
+                        setProfileForm((prev) => ({ ...prev, consent: e.target.checked }));
+                        setConsentError('');
+                      }}
+                      className="mt-1"
+                    />
+                    I confirm I am the parent or guardian of this child and consent to their personal data being processed as described in the Privacy Policy.
+                  </label>
+                  {consentError && <div className="mt-2 text-sm text-coral">{consentError}</div>}
+                </div>
+
+                <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                  <MotionButton onClick={() => setProfileModalOpen(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Cancel</MotionButton>
+                  <MotionButton onClick={saveProfile} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Add child ✓</MotionButton>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {storyModalIndex !== null && library[storyModalIndex] && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 px-4"
+            >
+              <motion.div
+                initial={{ opacity: 0, y: 20, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 20, scale: 0.96 }}
+                className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl2 border border-white/10 bg-card p-5 sm:p-6"
+              >
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div className="flex flex-col items-start gap-4 sm:flex-row">
+                    {library[storyModalIndex].cover_image ? (
+                      <img
+                        src={library[storyModalIndex].cover_image}
+                        alt={library[storyModalIndex].title}
+                        className="h-20 w-20 rounded-xl border border-white/10 bg-night3 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-20 w-20 items-center justify-center rounded-xl border border-white/10 bg-night3 text-3xl">
+                        📖
+                      </div>
+                    )}
+
+                    <div>
+                      <div className="font-display text-2xl text-moon sm:text-3xl">{library[storyModalIndex].title}</div>
+                      <div className="text-sm text-muted">
+                        {library[storyModalIndex].child_avatar} {library[storyModalIndex].child_name} · {library[storyModalIndex].theme} · Episode {library[storyModalIndex].episode_number || 1} · {formatStoryDate(library[storyModalIndex].created_at)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <MotionButton onClick={() => setStoryModalIndex(null)} className="text-muted">✕</MotionButton>
+                </div>
+
+                <div className="space-y-5">
+                  <StoryParagraphs text={library[storyModalIndex].body} />
+                </div>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
+                  <MotionButton onClick={() => speakStory(library[storyModalIndex])} className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon">
+                    {speakingStoryId === library[storyModalIndex].id ? '🔊 Playing...' : '🔊 Voice narration'}
+                  </MotionButton>
+
+                  {speakingStoryId === library[storyModalIndex].id && (
+                    <MotionButton onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</MotionButton>
                   )}
 
-                  <div>
-                    <div className="font-display text-3xl text-moon">{library[storyModalIndex].title}</div>
-                    <div className="text-sm text-muted">
-                      {library[storyModalIndex].child_avatar} {library[storyModalIndex].child_name} · {library[storyModalIndex].theme} · Episode {library[storyModalIndex].episode_number || 1} · {formatStoryDate(library[storyModalIndex].created_at)}
-                    </div>
-                  </div>
+                  <MotionButton onClick={() => setStoryModalIndex(null)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Close</MotionButton>
+                  <MotionButton onClick={() => removeStory(storyModalIndex)} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete</MotionButton>
                 </div>
-
-                <button onClick={() => setStoryModalIndex(null)} className="text-muted">✕</button>
-              </div>
-
-              <div className="space-y-5"><StoryParagraphs text={library[storyModalIndex].body} /></div>
-
-              <div className="mt-6 flex flex-wrap justify-end gap-3">
-                <button
-                  onClick={() => speakStory(library[storyModalIndex])}
-                  className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
-                >
-                  {speakingStoryId === library[storyModalIndex].id ? '🔊 Playing...' : '🔊 Voice narration'}
-                </button>
-
-                {speakingStoryId === library[storyModalIndex].id && (
-                  <button onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</button>
-                )}
-
-                <button onClick={() => setStoryModalIndex(null)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Close</button>
-                <button onClick={() => removeStory(storyModalIndex)} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete</button>
-              </div>
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <Toast toast={toast} />
       </div>
@@ -1209,28 +1432,43 @@ export default function App() {
 
 function OptionGroup({ title, options, value, onChange }) {
   return (
-    <div>
+    <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
       <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">{title}</div>
       <div className="flex flex-wrap gap-3">
-        {options.map((option) => {
+        {options.map((option, index) => {
           const active = option === value;
           return (
-            <button key={option} onClick={() => onChange(option)} className={classNames('rounded-full border px-4 py-2 text-sm font-bold capitalize transition', active ? 'border-moon bg-moon/10 text-moon' : 'border-white/10 bg-card text-text hover:border-purple2')}>
+            <motion.button
+              key={option}
+              onClick={() => onChange(option)}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: index * 0.02 }}
+              whileHover={{ y: -2, scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className={classNames(
+                'rounded-full border px-4 py-2 text-sm font-bold capitalize transition',
+                active ? 'border-moon bg-moon/10 text-moon' : 'border-white/10 bg-card text-text hover:border-purple2'
+              )}
+            >
               {option}
-            </button>
+            </motion.button>
           );
         })}
       </div>
-    </div>
+    </MotionCard>
   );
 }
 
 function StatBox({ label, value }) {
   return (
-    <div className="rounded-sm2 border border-white/5 bg-night3/60 p-4 text-center">
+    <motion.div
+      whileHover={{ y: -3, scale: 1.01 }}
+      className="rounded-sm2 border border-white/5 bg-night3/60 p-4 text-center"
+    >
       <div className="text-3xl font-extrabold text-moon">{value}</div>
       <div className="mt-1 text-xs text-muted">{label}</div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -1238,7 +1476,7 @@ function InfoRow({ label, value }) {
   return (
     <div className="flex items-center justify-between border-b border-white/5 py-3 text-sm last:border-b-0">
       <div className="text-muted">{label}</div>
-      <div className="font-bold text-text">{value}</div>
+      <div className="max-w-[60%] text-right font-bold text-text">{value}</div>
     </div>
   );
 }
