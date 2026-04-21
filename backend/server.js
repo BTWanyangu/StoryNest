@@ -160,7 +160,7 @@ app.post('/create-checkout-session', async (req, res) => {
       stripeCustomerId = customer.id;
       await supabaseAdmin.from('users').update({ stripe_customer_id: stripeCustomerId }).eq('id', authUser.id);
     }
-
+    console.log('USING PRICE ID:', process.env.STRIPE_PRICE_ID);
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       customer_email: stripeCustomerId ? undefined : authUser.email,
