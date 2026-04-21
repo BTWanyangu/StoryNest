@@ -21,7 +21,7 @@ const featureHighlights = [
   },
 ];
 
-export default function Footer() {
+export default function Footer({setScreen}) {
   return (
     <footer className="relative w-full text-white overflow-hidden">
       
@@ -98,12 +98,12 @@ export default function Footer() {
             </p>
 
             <div className="flex flex-wrap justify-center md:justify-end gap-4 md:gap-8">
-              <a href="#" className="text-sm transition hover:text-moon md:text-base">
+              <button onClick={() => setScreen('ToS')} className="text-sm transition hover:text-moon md:text-base">
                 Terms of Service
-              </a>
-              <Link to="/privacy" className="text-sm transition hover:text-moon md:text-base">
+              </button>
+              <button onClick={() => setScreen('privacy')} className="text-sm transition hover:text-moon md:text-base">
                 Privacy Policy
-              </Link>
+              </button>
               <a href="#" className="text-sm transition hover:text-moon md:text-base">
                 Cookie Policy
               </a>

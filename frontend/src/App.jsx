@@ -17,6 +17,8 @@ import Stats from './components/Stats';
 import Footer from './components/Footer';
 import Review from './components/Reviews';
 import FloatingTranslator from './components/FloatingTranslator';
+import Privacy from './components/Privacy';
+import ToS from './components/ToS';
 
 const initialForm = { email: '', password: '', name: '', parentConsent: false };
 const initialProfile = {
@@ -838,7 +840,7 @@ export default function App() {
                   <FAQs />
                 </motion.div>
                 <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-                  <Footer />
+                  <Footer setScreen={setScreen} />
                 </motion.div>
               </>
             )}
@@ -894,6 +896,16 @@ export default function App() {
                     </button>
                   </div>
                 </motion.div>
+              </main>
+            )}
+            {screen === 'privacy' && (
+              <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+                <Privacy />
+              </main>
+            )}
+            {screen === 'ToS' && (
+              <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+                <ToS />
               </main>
             )}
           </>
