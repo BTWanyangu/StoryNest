@@ -195,6 +195,28 @@ function StarsBackground() {
   );
 }
 
+function handleLanguageChange(languageCode) {
+  setSelectedLanguage(languageCode);
+  setOpen(false);
+
+  if (languageCode === 'en') {
+    document.cookie = 'googtrans=/en/en;path=/';
+    document.cookie = `googtrans=/en/en;path=/;domain=${window.location.hostname}`;
+    window.location.reload();
+    return;
+  }
+
+  const tryTranslate = (attempt = 0) => {
+    const worked = applyGoogleTranslate(languageCode);
+
+    if (!worked && attempt < 10) {
+      setTimeout(() => tryTranslate(attempt + 1), 500);
+    }
+  };
+
+  tryTranslate();
+}
+
 function Toast({ toast }) {
   return (
     <AnimatePresence>
