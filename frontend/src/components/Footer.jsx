@@ -1,21 +1,7 @@
 import { Heart, BookOpen, PlaySquare } from "lucide-react";
 import { Link } from "react-router-dom";
-
-import Privacy from "./Privacy";
-
-const quickLinks = [
-  { name: "Parent Login", href: "#" },
-  { name: "Child Login", href: "#" },
-  { name: "Features", href: "#" },
-  { name: "Pricing", href: "#" },
-];
-
-const supportLinks = [
-  { name: "Help Center", href: "#" },
-  { name: "Safety Guide", href: "#" },
-  { name: "Parent Resources", href: "#" },
-  { name: "Contact Us", href: "#" },
-];
+import { motion } from "framer-motion";
+import logo from "../assets/logo.png";
 
 const featureHighlights = [
   {
@@ -37,77 +23,55 @@ const featureHighlights = [
 
 export default function Footer() {
   return (
-    <footer className="w-full bg-night text-white">
-      <div className="mx-auto w-full max-w-7xl px-6 py-16 md:px-10 lg:px-12 xl:px-16">
-        <div className="grid gap-12 lg:grid-cols-[1.5fr_0.8fr_0.8fr]">
-          <div>
-            <div className="flex items-center gap-3">
-              <img
-                src="/logo.png"
-                alt="StoryNestAI logo"
-                className="h-12 w-auto object-contain"
-              />
-              <h2 className="text-3xl font-bold tracking-tight md:text-4xl">
-                <span className="text-moon">Story</span>
-                <span className="text-indigo-400">Nest</span>
+    <footer className="relative w-full text-white overflow-hidden">
+      
+      {/* 🔥 TOP GLOW DIVIDER */}
+      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-moon to-transparent opacity-70" />
 
-              </h2>
-            </div>
+      {/* 🌌 BACKGROUND ENHANCEMENT */}
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050816] to-[#02030a]" />
+      <div className="absolute inset-0 backdrop-blur-[2px]" />
 
-            <p className="mt-8 max-w-2xl text-base leading-8 text-slate-300 md:text-lg">
+      <motion.div
+        initial={{ opacity: 0, y: 60 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.8, ease: "easeOut" }}
+        className="relative mx-auto w-full max-w-7xl px-6 py-20 md:px-10 lg:px-12 xl:px-16"
+      >
+        {/* 🔥 MAIN SECTION */}
+        <div className="flex flex-col gap-14 lg:flex-row lg:items-center lg:justify-between lg:gap-20">
+          
+          {/* LEFT: LOGO + TEXT */}
+          <div className="flex flex-col items-center text-center gap-6 md:flex-row md:text-left lg:flex-[1.2]">
+            <img
+              src={logo}
+              alt="StoryNest Logo"
+              className="h-20 md:h-24 w-auto object-contain shrink-0"
+            />
+
+            <p className="max-w-xl text-base leading-8 text-slate-300 md:text-lg">
               Empowering children to create and explore magical stories through
               the power of AI. Join us in making reading and storytelling an
               unforgettable adventure.
             </p>
           </div>
 
-          <div>
-            <h3 className="text-xl font-semibold text-white md:text-2xl">
-              Quick Links
-            </h3>
-
-            <ul className="mt-6 space-y-4">
-              {quickLinks.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-base text-slate-200 transition hover:text-indigo-300 md:text-lg"
-                  >
-                    {link.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h3 className="text-xl font-semibold text-white md:text-2xl">
-              Support
-            </h3>
-
-            <ul className="mt-6 space-y-4">
-              {supportLinks.map((link) => (
-                <li key={link.name}>
-                  <a
-                    href={link.href}
-                    className="text-base text-slate-200 transition hover:text-indigo-300 md:text-lg"
-                  >
-                    {link.name}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-14 border-t border-white/10 pt-10">
-          <div className="grid gap-8 md:grid-cols-3">
-            {featureHighlights.map((item) => {
+          {/* RIGHT: FEATURES */}
+          <div className="flex flex-col gap-6 w-full max-w-md mx-auto lg:mx-0">
+            {featureHighlights.map((item, index) => {
               const Icon = item.icon;
 
               return (
-                <div key={item.title} className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-950/70">
+                <motion.div
+                  key={item.title}
+                  initial={{ opacity: 0, x: 40 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.15 }}
+                  viewport={{ once: true }}
+                  className="flex items-start gap-4"
+                >
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-950/60 border border-white/10">
                     <Icon className="h-7 w-7 text-indigo-300" strokeWidth={2} />
                   </div>
 
@@ -119,32 +83,35 @@ export default function Footer() {
                       {item.subtitle}
                     </p>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
         </div>
 
-        <div className="mt-10 border-t border-white/10 pt-8">
-          <div className="flex flex-col gap-5 text-slate-300 md:flex-row md:items-center md:justify-between">
-            <p className="text-sm md:text-base">
-              © 2026 StoryNest. All rights reserved.
+        {/* 🔥 BOTTOM SECTION */}
+        <div className="mt-14 border-t border-white/10 pt-8">
+          <div className="flex flex-col gap-5 text-slate-400 md:flex-row md:items-center md:justify-between">
+            
+            <p className="text-sm md:text-base text-center md:text-left">
+              © 2026 Moonspun. All rights reserved.
             </p>
 
-            <div className="flex flex-wrap gap-4 md:gap-8">
-              <a href="#" className="text-sm transition hover:text-indigo-300 md:text-base">
+            <div className="flex flex-wrap justify-center md:justify-end gap-4 md:gap-8">
+              <a href="#" className="text-sm transition hover:text-moon md:text-base">
                 Terms of Service
               </a>
-              <Link to="/privacy" className="text-sm transition hover:text-indigo-300 md:text-base">
+              <Link to="/privacy" className="text-sm transition hover:text-moon md:text-base">
                 Privacy Policy
-              </Link >
-              <a href="#" className="text-sm transition hover:text-indigo-300 md:text-base">
+              </Link>
+              <a href="#" className="text-sm transition hover:text-moon md:text-base">
                 Cookie Policy
               </a>
             </div>
+
           </div>
         </div>
-      </div>
+      </motion.div>
     </footer>
   );
 }

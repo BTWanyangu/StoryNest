@@ -9,7 +9,7 @@ const reviews = [
     role: "Parent of two",
     image:
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80",
-    text: `StoryNestAI has transformed our bedtime routine! My kids are so excited to create their own stories, and I love how it adapts to their reading levels. The AI-generated content is incredibly engaging and educational.`,
+    text: `Moonspun has transformed our bedtime routine! My kids are so excited to create their own stories, and I love how it adapts to their reading levels. The AI-generated content is incredibly engaging and educational.`,
   },
   {
     id: 2,
@@ -17,7 +17,7 @@ const reviews = [
     role: "Elementary Teacher",
     image:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
-    text: `As an educator, I'm amazed by how StoryNestAI combines creativity with learning. The AI-generated stories are not only entertaining but also help develop critical thinking and reading comprehension skills.`,
+    text: `As an educator, I'm amazed by how Moonspun combines creativity with learning. The AI-generated stories are not only entertaining but also help develop critical thinking and reading comprehension skills.`,
   },
   {
     id: 3,
@@ -41,7 +41,7 @@ const reviews = [
     role: "Father of one",
     image:
       "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80",
-    text: `I was surprised by how thoughtful and creative the stories are. StoryNestAI gives my son stories he connects with personally, and that has made a huge difference in his reading habits.`,
+    text: `I was surprised by how thoughtful and creative the stories are. Moonspun gives my son stories he connects with personally, and that has made a huge difference in his reading habits.`,
   },
   {
     id: 6,
@@ -49,7 +49,7 @@ const reviews = [
     role: "Literacy Coach",
     image:
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80",
-    text: `StoryNestAI is one of the most exciting reading tools I’ve seen. It blends imagination, reading practice, and technology beautifully. Children stay engaged while still building real literacy skills.`,
+    text: `Moonspun is one of the most exciting reading tools I’ve seen. It blends imagination, reading practice, and technology beautifully. Children stay engaged while still building real literacy skills.`,
   },
 ];
 
@@ -137,7 +137,7 @@ export default function Review() {
 
           <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-purple-500 md:text-xl">
             Join thousands of satisfied families who are making reading an
-            exciting adventure with StoryNestAI.
+            exciting adventure with Moonspun.
           </p>
         </motion.div>
 

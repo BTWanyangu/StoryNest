@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AVATARS, LENGTHS, MORALS, STORY_ICONS, THEMES } from './constants';
 import { supabase } from './lib/supabase';
+import logo from './assets/logo.png';
+import { Sparkles, BookOpen, Users, Zap } from "lucide-react";
 import {
   createCheckoutSession,
   createPortalSession,
@@ -27,6 +29,15 @@ const initialProfile = {
   companion_type: '',
   companion_trait: '',
 };
+
+const features = [
+  [Sparkles, "Personalised", "Your child is the hero every time"],
+  [BookOpen, "Story series", "Save stories as episodes with cover art"],
+  [Users, "Multi-child ready", "Premium supports up to 3 child profiles"],
+  [Zap, "Fast generation", "New bedtime stories in 10–20 seconds"],
+];
+
+
 
 function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
@@ -670,9 +681,16 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/80 px-4 py-4 backdrop-blur md:px-8"
             >
-              <MotionButton onClick={() => setScreen('landing')} className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]">
-                <span className="text-[1.5rem] md:text-[1.6rem]">🌙</span> StoryNest
-              </MotionButton>
+              <MotionButton
+  onClick={() => setScreen('landing')}
+  className="flex items-center gap-2 font-display"
+>
+  <img
+    src={logo}
+    alt="StoryNest Logo"
+    className="h-24 md:h-24 w-auto object-contain"
+  />
+</MotionButton>
 
               <div className="hidden items-center gap-3 sm:flex">
                 <MotionButton onClick={() => { setAuthMode('login'); setScreen('auth'); }} className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-text transition hover:border-purple2 hover:text-purple3">Sign in</MotionButton>
@@ -729,7 +747,7 @@ export default function App() {
                     transition={{ delay: 0.1 }}
                     className="mb-8 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-[1.05rem]"
                   >
-                    StoryNest creates personalised bedtime stories based on your child&apos;s name, age, interests, and chosen theme — magical, calming, and ready in seconds.
+                    Moonspun creates personalised bedtime stories based on your child&apos;s name, age, interests, and chosen theme — magical, calming, and ready in seconds.
                   </motion.p>
 
                   <motion.div
@@ -745,26 +763,32 @@ export default function App() {
                       See pricing
                     </MotionButton>
                   </motion.div>
+<div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+  {features.map(([Icon, title, desc], index) => (
+    <MotionCard
+      key={title}
+      delay={0.06 * index}
+      className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-6 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#f5c85b]/45 hover:shadow-[0_18px_40px_rgba(11,10,40,0.42)]"
+    >
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-70" />
+      <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-[#f5c85b]/10 blur-2xl opacity-0 transition duration-300 group-hover:opacity-100" />
 
-                  <div className="grid w-full max-w-6xl grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                    {[
-                      ['✨', 'Personalised', 'Your child is the hero every time'],
-                      ['📚', 'Story series', 'Save stories as episodes with cover art'],
-                      ['🧒', 'Multi-child ready', 'Premium supports up to 3 child profiles'],
-                      ['⚡', 'Fast generation', 'New bedtime stories in 10–20 seconds'],
-                    ].map(([icon, title, desc], index) => (
-                      <MotionCard
-                        key={title}
-                        delay={0.06 * index}
-                        className="rounded-xl2 border border-white/10 bg-card p-5 text-center transition hover:border-purple2/40"
-                      >
-                        <div className="mb-2 text-3xl">{icon}</div>
-                        <div className="mb-1 text-sm font-bold text-star">{title}</div>
-                        <div className="text-xs leading-6 text-muted">{desc}</div>
-                      </MotionCard>
-                    ))}
-                  </div>
+      <div className="mb-5 flex justify-center">
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-inner shadow-white/5 transition duration-300 group-hover:scale-105 group-hover:border-[#f5c85b]/30 group-hover:bg-[#f5c85b]/[0.08]">
+          <Icon className="h-6 w-6 text-[#f5c85b]" strokeWidth={2.1} />
+        </div>
+      </div>
 
+      <h3 className="mb-2 text-[1.02rem] font-semibold tracking-tight text-white">
+        {title}
+      </h3>
+
+      <p className="text-sm leading-6 text-slate-300">
+        {desc}
+      </p>
+    </MotionCard>
+  ))}
+</div>
                   <motion.section
                     id="pricing"
                     initial={{ opacity: 0, y: 20 }}
@@ -830,7 +854,7 @@ export default function App() {
                     {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
                   </h2>
                   <p className="mb-7 text-center text-sm text-muted">
-                    {authMode === 'signup' ? 'Start with 3 free stories — no card needed' : 'Sign in to your StoryNest'}
+                    {authMode === 'signup' ? 'Start with 3 free stories — no card needed' : 'Sign in to access your personalized stories and profiles'}
                   </p>
 
                   {authMode === 'signup' && (
@@ -880,7 +904,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/85 px-4 py-3 backdrop-blur md:px-6"
             >
-              <div className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]"><span className="text-[1.5rem] md:text-[1.6rem]">🌙</span> StoryNest</div>
+              <div className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]"><span className="text-[1.5rem] md:text-[1.6rem]">🌙</span> </div>
               <div className="text-xs text-muted sm:text-sm">Hi, {firstName} 👋</div>
             </motion.nav>
 
