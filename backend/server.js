@@ -25,6 +25,7 @@ app.use((req, res, next) => {
 async function getAuthContext(req) {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
   if (!token) {
     const error = new Error('Missing authorization token');
     error.status = 401;
@@ -56,17 +57,26 @@ async function getAuthContext(req) {
 
 const db = {
   async getUserById(userId) {
-    const { data, error } = await supabaseAdmin.from('users').select('*').eq('id', userId).single();
+    const { data, error } = await supabaseAdmin
+      .from('users')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
     if (error) throw error;
     return data;
   },
 
   async upgradeToPremium(userId, stripeCustomerId, subscriptionId) {
-    const { error } = await supabaseAdmin.from('users').update({
-      plan: 'premium',
-      stripe_customer_id: stripeCustomerId,
-      stripe_subscription_id: subscriptionId,
-    }).eq('id', userId);
+    const { error } = await supabaseAdmin
+      .from('users')
+      .update({
+        plan: 'premium',
+        stripe_customer_id: stripeCustomerId,
+        stripe_subscription_id: subscriptionId,
+      })
+      .eq('id', userId);
+
     if (error) throw error;
   },
 
@@ -75,6 +85,7 @@ const db = {
       .from('users')
       .update({ plan: 'free' })
       .eq('stripe_customer_id', stripeCustomerId);
+
     if (error) throw error;
   },
 
@@ -84,19 +95,79 @@ const db = {
       .select('*')
       .eq('stripe_customer_id', stripeCustomerId)
       .maybeSingle();
+
     if (error) throw error;
     return data;
   },
 
   async logRenewal(stripeCustomerId, invoiceId, amount) {
-    const { error } = await supabaseAdmin.from('renewals').upsert({
-      stripe_customer_id: stripeCustomerId,
-      stripe_invoice_id: invoiceId,
-      amount_pence: amount,
-    }, { onConflict: 'stripe_invoice_id' });
+    const { error } = await supabaseAdmin
+      .from('renewals')
+      .upsert(
+        {
+          stripe_customer_id: stripeCustomerId,
+          stripe_invoice_id: invoiceId,
+          amount_pence: amount,
+        },
+        { onConflict: 'stripe_invoice_id' }
+      );
+
     if (error) throw error;
   },
 };
+
+function isStripeMissingResourceError(error, resourceType) {
+  const message = error?.message || '';
+  return (
+    error?.type === 'StripeInvalidRequestError' &&
+    message.toLowerCase().includes(`no such ${resourceType}`)
+  );
+}
+
+async function updateUserStripeFields(userId, fields) {
+  const { error } = await supabaseAdmin
+    .from('users')
+    .update(fields)
+    .eq('id', userId);
+
+  if (error) throw error;
+}
+
+async function createFreshStripeCustomer(authUser) {
+  const customer = await stripe.customers.create({
+    email: authUser.email,
+    metadata: { storynest_user_id: authUser.id },
+  });
+
+  await updateUserStripeFields(authUser.id, {
+    stripe_customer_id: customer.id,
+    stripe_subscription_id: null,
+    plan: 'free',
+  });
+
+  return customer.id;
+}
+
+async function ensureValidStripeCustomer(authUser, userRecord) {
+  const existingCustomerId = userRecord.stripe_customer_id;
+
+  if (!existingCustomerId) {
+    return createFreshStripeCustomer(authUser);
+  }
+
+  try {
+    await stripe.customers.retrieve(existingCustomerId);
+    return existingCustomerId;
+  } catch (error) {
+    if (!isStripeMissingResourceError(error, 'customer')) {
+      throw error;
+    }
+
+    console.warn('[stripe] Stored customer missing, recreating:', existingCustomerId);
+
+    return createFreshStripeCustomer(authUser);
+  }
+}
 
 app.post('/generate-story', async (req, res) => {
   try {
@@ -143,24 +214,20 @@ app.post('/generate-story', async (req, res) => {
     return res.json({ text });
   } catch (error) {
     console.error('[generate-story]', error);
-    return res.status(error.status || 500).json({ error: error.message || 'Could not generate story' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not generate story',
+    });
   }
 });
 
 app.post('/create-checkout-session', async (req, res) => {
   try {
     const { authUser, userRecord } = await getAuthContext(req);
-    let stripeCustomerId = userRecord.stripe_customer_id;
 
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: authUser.email,
-        metadata: { storynest_user_id: authUser.id },
-      });
-      stripeCustomerId = customer.id;
-      await supabaseAdmin.from('users').update({ stripe_customer_id: stripeCustomerId }).eq('id', authUser.id);
-    }
+    const stripeCustomerId = await ensureValidStripeCustomer(authUser, userRecord);
+
     console.log('USING PRICE ID:', process.env.STRIPE_PRICE_ID);
+
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       customer_email: stripeCustomerId ? undefined : authUser.email,
@@ -178,43 +245,69 @@ app.post('/create-checkout-session', async (req, res) => {
     return res.json({ url: session.url });
   } catch (error) {
     console.error('[create-checkout-session]', error);
-    return res.status(error.status || 500).json({ error: error.message || 'Could not create checkout session' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not create checkout session',
+    });
   }
 });
 
 app.post('/create-portal-session', async (req, res) => {
   try {
-    const { userRecord } = await getAuthContext(req);
-    if (!userRecord.stripe_customer_id) {
-      return res.status(404).json({ error: 'No Stripe customer found for this user' });
-    }
+    const { authUser, userRecord } = await getAuthContext(req);
+
+    const stripeCustomerId = await ensureValidStripeCustomer(authUser, userRecord);
 
     const portalSession = await stripe.billingPortal.sessions.create({
-      customer: userRecord.stripe_customer_id,
+      customer: stripeCustomerId,
       return_url: process.env.FRONTEND_URL,
     });
 
     return res.json({ url: portalSession.url });
   } catch (error) {
     console.error('[create-portal-session]', error);
-    return res.status(error.status || 500).json({ error: error.message || 'Could not create portal session' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not create portal session',
+    });
   }
 });
 
 app.get('/subscription-status', async (req, res) => {
   try {
-    const { userRecord } = await getAuthContext(req);
+    const { authUser, userRecord } = await getAuthContext(req);
+
     if (!userRecord.stripe_customer_id) {
       return res.json({ plan: userRecord.plan || 'free', status: 'none' });
     }
 
+    let customerId = userRecord.stripe_customer_id;
+
+    try {
+      await stripe.customers.retrieve(customerId);
+    } catch (error) {
+      if (!isStripeMissingResourceError(error, 'customer')) {
+        throw error;
+      }
+
+      console.warn('[subscription-status] Stored customer missing, resetting:', customerId);
+
+      await updateUserStripeFields(authUser.id, {
+        stripe_customer_id: null,
+        stripe_subscription_id: null,
+        plan: 'free',
+      });
+
+      return res.json({ plan: 'free', status: 'none' });
+    }
+
     const subscriptions = await stripe.subscriptions.list({
-      customer: userRecord.stripe_customer_id,
+      customer: customerId,
       status: 'all',
       limit: 5,
     });
 
-    const activeSub = subscriptions.data.find((sub) => ['active', 'trialing', 'past_due'].includes(sub.status));
+    const activeSub = subscriptions.data.find((sub) =>
+      ['active', 'trialing', 'past_due'].includes(sub.status)
+    );
 
     if (activeSub) {
       return res.json({
@@ -228,7 +321,9 @@ app.get('/subscription-status', async (req, res) => {
     return res.json({ plan: 'free', status: 'cancelled' });
   } catch (error) {
     console.error('[subscription-status]', error);
-    return res.status(error.status || 500).json({ error: error.message || 'Could not get subscription status' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not get subscription status',
+    });
   }
 });
 
@@ -236,9 +331,13 @@ app.post('/sync-checkout-session', async (req, res) => {
   try {
     const { authUser } = await getAuthContext(req);
     const sessionId = req.query.session_id;
-    if (!sessionId) return res.status(400).json({ error: 'session_id query parameter is required' });
+
+    if (!sessionId) {
+      return res.status(400).json({ error: 'session_id query parameter is required' });
+    }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
+
     if (session.metadata?.storynest_user_id !== authUser.id) {
       return res.status(403).json({ error: 'Checkout session does not belong to this user' });
     }
@@ -250,7 +349,9 @@ app.post('/sync-checkout-session', async (req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     console.error('[sync-checkout-session]', error);
-    return res.status(error.status || 500).json({ error: error.message || 'Could not sync checkout session' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not sync checkout session',
+    });
   }
 });
 
@@ -272,7 +373,11 @@ app.delete('/delete-account', async (req, res) => {
           }
         }
       } catch (stripeError) {
-        console.warn('Stripe cancellation warning:', stripeError.message);
+        if (isStripeMissingResourceError(stripeError, 'customer')) {
+          console.warn('[delete-account] Stripe customer already missing:', userRecord.stripe_customer_id);
+        } else {
+          console.warn('Stripe cancellation warning:', stripeError.message);
+        }
       }
     }
 
@@ -282,7 +387,9 @@ app.delete('/delete-account', async (req, res) => {
     return res.json({ ok: true });
   } catch (error) {
     console.error('[delete-account]', error);
-    return res.status(error.status || 500).json({ error: error.message || 'Could not delete account' });
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not delete account',
+    });
   }
 });
 
@@ -291,7 +398,11 @@ app.post('/webhook', async (req, res) => {
   let event;
 
   try {
-    event = stripe.webhooks.constructEvent(req.body, signature, process.env.STRIPE_WEBHOOK_SECRET);
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      signature,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
   } catch (error) {
     console.error('[webhook] Signature verification failed:', error.message);
     return res.status(400).send(`Webhook Error: ${error.message}`);
@@ -302,7 +413,11 @@ app.post('/webhook', async (req, res) => {
       case 'checkout.session.completed': {
         const session = event.data.object;
         if (session.mode === 'subscription' && session.metadata?.storynest_user_id) {
-          await db.upgradeToPremium(session.metadata.storynest_user_id, session.customer, session.subscription);
+          await db.upgradeToPremium(
+            session.metadata.storynest_user_id,
+            session.customer,
+            session.subscription
+          );
         }
         break;
       }
@@ -320,7 +435,9 @@ app.post('/webhook', async (req, res) => {
           if (userRecord) {
             await db.upgradeToPremium(userRecord.id, subscription.customer, subscription.id);
           }
-        } else if (['canceled', 'unpaid', 'incomplete_expired', 'paused'].includes(subscription.status)) {
+        } else if (
+          ['canceled', 'unpaid', 'incomplete_expired', 'paused'].includes(subscription.status)
+        ) {
           await db.downgradeToFree(subscription.customer);
         }
         break;
