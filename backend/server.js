@@ -6,6 +6,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
 const supabaseAdmin = createClient(
@@ -13,7 +14,25 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_KEY || 'placeholder-service-role'
 );
 
+const PLAN_LIMITS = {
+  free: { stories: 3, children: 1 },
+  pro: { stories: 50, children: 3 },
+  pro_unlimited: { stories: Infinity, children: 6 },
+};
+
+const PLAN_PRICE_MAP = {
+  pro: process.env.STRIPE_PRO_PRICE_ID || '',
+  pro_unlimited: process.env.STRIPE_PRO_UNLIMITED_PRICE_ID || '',
+};
+
+const PRICE_PLAN_MAP = Object.fromEntries(
+  Object.entries(PLAN_PRICE_MAP)
+    .filter(([, value]) => Boolean(value))
+    .map(([plan, priceId]) => [priceId, plan])
+);
+
 app.use(cors({ origin: process.env.FRONTEND_URL || true }));
+
 app.use((req, res, next) => {
   if (req.originalUrl === '/webhook') {
     express.raw({ type: 'application/json' })(req, res, next);
@@ -21,6 +40,30 @@ app.use((req, res, next) => {
     express.json()(req, res, next);
   }
 });
+
+function getPlanLimits(plan) {
+  return PLAN_LIMITS[plan] || PLAN_LIMITS.free;
+}
+
+function resolvePlanFromPriceId(priceId) {
+  return PRICE_PLAN_MAP[priceId] || 'free';
+}
+
+function resolvePriceIdFromPlan(plan) {
+  return PLAN_PRICE_MAP[plan] || null;
+}
+
+function toIsoOrNull(unixSeconds) {
+  return unixSeconds ? new Date(unixSeconds * 1000).toISOString() : null;
+}
+
+function isStripeMissingResourceError(error, resourceType) {
+  const message = error?.message || '';
+  return (
+    error?.type === 'StripeInvalidRequestError' &&
+    message.toLowerCase().includes(`no such ${resourceType}`)
+  );
+}
 
 async function getAuthContext(req) {
   const authHeader = req.headers.authorization || '';
@@ -67,28 +110,6 @@ const db = {
     return data;
   },
 
-  async upgradeToPremium(userId, stripeCustomerId, subscriptionId) {
-    const { error } = await supabaseAdmin
-      .from('users')
-      .update({
-        plan: 'premium',
-        stripe_customer_id: stripeCustomerId,
-        stripe_subscription_id: subscriptionId,
-      })
-      .eq('id', userId);
-
-    if (error) throw error;
-  },
-
-  async downgradeToFree(stripeCustomerId) {
-    const { error } = await supabaseAdmin
-      .from('users')
-      .update({ plan: 'free' })
-      .eq('stripe_customer_id', stripeCustomerId);
-
-    if (error) throw error;
-  },
-
   async getUserByStripeCustomerId(stripeCustomerId) {
     const { data, error } = await supabaseAdmin
       .from('users')
@@ -100,7 +121,25 @@ const db = {
     return data;
   },
 
-  async logRenewal(stripeCustomerId, invoiceId, amount) {
+  async updateUserById(userId, fields) {
+    const { error } = await supabaseAdmin
+      .from('users')
+      .update(fields)
+      .eq('id', userId);
+
+    if (error) throw error;
+  },
+
+  async updateUserByStripeCustomerId(stripeCustomerId, fields) {
+    const { error } = await supabaseAdmin
+      .from('users')
+      .update(fields)
+      .eq('stripe_customer_id', stripeCustomerId);
+
+    if (error) throw error;
+  },
+
+  async logRenewal(stripeCustomerId, invoiceId, amount, plan = null) {
     const { error } = await supabaseAdmin
       .from('renewals')
       .upsert(
@@ -108,6 +147,7 @@ const db = {
           stripe_customer_id: stripeCustomerId,
           stripe_invoice_id: invoiceId,
           amount_pence: amount,
+          plan,
         },
         { onConflict: 'stripe_invoice_id' }
       );
@@ -116,32 +156,19 @@ const db = {
   },
 };
 
-function isStripeMissingResourceError(error, resourceType) {
-  const message = error?.message || '';
-  return (
-    error?.type === 'StripeInvalidRequestError' &&
-    message.toLowerCase().includes(`no such ${resourceType}`)
-  );
-}
-
-async function updateUserStripeFields(userId, fields) {
-  const { error } = await supabaseAdmin
-    .from('users')
-    .update(fields)
-    .eq('id', userId);
-
-  if (error) throw error;
-}
-
 async function createFreshStripeCustomer(authUser) {
   const customer = await stripe.customers.create({
     email: authUser.email,
     metadata: { storynest_user_id: authUser.id },
   });
 
-  await updateUserStripeFields(authUser.id, {
+  await db.updateUserById(authUser.id, {
     stripe_customer_id: customer.id,
     stripe_subscription_id: null,
+    stripe_price_id: null,
+    subscription_period_start: null,
+    subscription_period_end: null,
+    trial_ends_at: null,
     plan: 'free',
   });
 
@@ -164,22 +191,107 @@ async function ensureValidStripeCustomer(authUser, userRecord) {
     }
 
     console.warn('[stripe] Stored customer missing, recreating:', existingCustomerId);
-
     return createFreshStripeCustomer(authUser);
   }
 }
 
+async function applySubscriptionToUser(userId, stripeCustomerId, subscription) {
+  const firstItem = subscription?.items?.data?.[0];
+  const priceId = firstItem?.price?.id || null;
+  const plan = resolvePlanFromPriceId(priceId);
+  const currentPeriodStart = toIsoOrNull(subscription?.current_period_start);
+  const currentPeriodEnd = toIsoOrNull(subscription?.current_period_end);
+  const trialEndsAt = toIsoOrNull(subscription?.trial_end);
+
+  const existingUser = await db.getUserById(userId);
+
+  const shouldResetStories =
+    existingUser.subscription_period_start !== currentPeriodStart &&
+    ['pro', 'pro_unlimited'].includes(plan);
+
+  await db.updateUserById(userId, {
+    plan,
+    stripe_customer_id: stripeCustomerId,
+    stripe_subscription_id: subscription.id,
+    stripe_price_id: priceId,
+    subscription_period_start: currentPeriodStart,
+    subscription_period_end: currentPeriodEnd,
+    trial_ends_at: trialEndsAt,
+    ...(shouldResetStories
+      ? {
+          stories_generated: 0,
+          stories_period_started_at: currentPeriodStart || new Date().toISOString(),
+        }
+      : {}),
+  });
+}
+
+async function downgradeUserToFreeByCustomerId(stripeCustomerId) {
+  const existingUser = await db.getUserByStripeCustomerId(stripeCustomerId);
+  if (!existingUser) return;
+
+  await db.updateUserByStripeCustomerId(stripeCustomerId, {
+    plan: 'free',
+    stripe_subscription_id: null,
+    stripe_price_id: null,
+    subscription_period_start: null,
+    subscription_period_end: null,
+    trial_ends_at: null,
+  });
+}
+
+async function maybeResetUsageWindow(userRecord) {
+  if (!['pro', 'pro_unlimited'].includes(userRecord.plan)) {
+    return userRecord;
+  }
+
+  if (!userRecord.subscription_period_start) {
+    return userRecord;
+  }
+
+  const currentWindowStart = userRecord.subscription_period_start;
+  const storedWindowStart = userRecord.stories_period_started_at;
+
+  if (storedWindowStart === currentWindowStart) {
+    return userRecord;
+  }
+
+  const updatedFields = {
+    stories_generated: 0,
+    stories_period_started_at: currentWindowStart,
+  };
+
+  await db.updateUserById(userRecord.id, updatedFields);
+
+  return {
+    ...userRecord,
+    ...updatedFields,
+  };
+}
+
 app.post('/generate-story', async (req, res) => {
   try {
-    const { userRecord } = await getAuthContext(req);
+    let { userRecord } = await getAuthContext(req);
     const { prompt } = req.body;
 
     if (!prompt) {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
-    if (userRecord.plan !== 'premium' && userRecord.stories_generated >= 3) {
-      return res.status(403).json({ error: 'Free story limit reached. Upgrade to premium.' });
+    userRecord = await maybeResetUsageWindow(userRecord);
+
+    const planLimits = getPlanLimits(userRecord.plan);
+    const storyAllowance = planLimits.stories;
+
+    if (Number.isFinite(storyAllowance) && userRecord.stories_generated >= storyAllowance) {
+      return res.status(403).json({
+        error:
+          userRecord.plan === 'free'
+            ? 'Free story limit reached. Upgrade to continue.'
+            : userRecord.plan === 'pro'
+            ? 'Pro story limit reached for this billing cycle. Upgrade to Pro Unlimited or wait for renewal.'
+            : 'Story limit reached.',
+      });
     }
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -191,7 +303,7 @@ app.post('/generate-story', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1200,
+        max_tokens: 1800,
         messages: [{ role: 'user', content: prompt }],
       }),
     });
@@ -203,8 +315,8 @@ app.post('/generate-story', async (req, res) => {
 
       const error = new Error(
         anthropicData?.error?.message ||
-        anthropicData?.message ||
-        'Anthropic request failed'
+          anthropicData?.message ||
+          'Anthropic request failed'
       );
       error.status = anthropicResponse.status;
       throw error;
@@ -223,23 +335,41 @@ app.post('/generate-story', async (req, res) => {
 app.post('/create-checkout-session', async (req, res) => {
   try {
     const { authUser, userRecord } = await getAuthContext(req);
+    const requestedPlan = req.body?.plan;
+
+    if (!requestedPlan || !['pro', 'pro_unlimited'].includes(requestedPlan)) {
+      return res.status(400).json({ error: 'A valid plan is required: pro or pro_unlimited.' });
+    }
+
+    const selectedPriceId = resolvePriceIdFromPlan(requestedPlan);
+
+    if (!selectedPriceId) {
+      return res.status(500).json({ error: `Price ID is not configured for plan ${requestedPlan}.` });
+    }
 
     const stripeCustomerId = await ensureValidStripeCustomer(authUser, userRecord);
-
-    console.log('USING PRICE ID:', process.env.STRIPE_PRICE_ID);
 
     const session = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       customer_email: stripeCustomerId ? undefined : authUser.email,
       payment_method_types: ['card'],
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: selectedPriceId, quantity: 1 }],
       mode: 'subscription',
       automatic_tax: { enabled: true },
       customer_update: { address: 'auto' },
       success_url: `${process.env.FRONTEND_URL}?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}?cancelled=true`,
-      metadata: { storynest_user_id: authUser.id },
-      subscription_data: { metadata: { storynest_user_id: authUser.id } },
+      metadata: {
+        storynest_user_id: authUser.id,
+        selected_plan: requestedPlan,
+      },
+      subscription_data: {
+        trial_period_days: 3,
+        metadata: {
+          storynest_user_id: authUser.id,
+          selected_plan: requestedPlan,
+        },
+      },
     });
 
     return res.json({ url: session.url });
@@ -276,10 +406,16 @@ app.get('/subscription-status', async (req, res) => {
     const { authUser, userRecord } = await getAuthContext(req);
 
     if (!userRecord.stripe_customer_id) {
-      return res.json({ plan: userRecord.plan || 'free', status: 'none' });
+      return res.json({
+        plan: userRecord.plan || 'free',
+        status: 'none',
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        trialEndsAt: null,
+      });
     }
 
-    let customerId = userRecord.stripe_customer_id;
+    const customerId = userRecord.stripe_customer_id;
 
     try {
       await stripe.customers.retrieve(customerId);
@@ -290,19 +426,30 @@ app.get('/subscription-status', async (req, res) => {
 
       console.warn('[subscription-status] Stored customer missing, resetting:', customerId);
 
-      await updateUserStripeFields(authUser.id, {
+      await db.updateUserById(authUser.id, {
         stripe_customer_id: null,
         stripe_subscription_id: null,
+        stripe_price_id: null,
+        subscription_period_start: null,
+        subscription_period_end: null,
+        trial_ends_at: null,
         plan: 'free',
       });
 
-      return res.json({ plan: 'free', status: 'none' });
+      return res.json({
+        plan: 'free',
+        status: 'none',
+        currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
+        trialEndsAt: null,
+      });
     }
 
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       status: 'all',
       limit: 5,
+      expand: ['data.items.data.price'],
     });
 
     const activeSub = subscriptions.data.find((sub) =>
@@ -310,15 +457,26 @@ app.get('/subscription-status', async (req, res) => {
     );
 
     if (activeSub) {
+      const firstItem = activeSub.items?.data?.[0];
+      const priceId = firstItem?.price?.id || null;
+      const plan = resolvePlanFromPriceId(priceId);
+
       return res.json({
-        plan: 'premium',
+        plan,
         status: activeSub.status,
         currentPeriodEnd: activeSub.current_period_end,
         cancelAtPeriodEnd: activeSub.cancel_at_period_end,
+        trialEndsAt: activeSub.trial_end,
       });
     }
 
-    return res.json({ plan: 'free', status: 'cancelled' });
+    return res.json({
+      plan: 'free',
+      status: 'cancelled',
+      currentPeriodEnd: null,
+      cancelAtPeriodEnd: false,
+      trialEndsAt: null,
+    });
   } catch (error) {
     console.error('[subscription-status]', error);
     return res.status(error.status || 500).json({
@@ -343,7 +501,11 @@ app.post('/sync-checkout-session', async (req, res) => {
     }
 
     if (session.customer && session.subscription) {
-      await db.upgradeToPremium(authUser.id, session.customer, session.subscription);
+      const subscription = await stripe.subscriptions.retrieve(session.subscription, {
+        expand: ['items.data.price'],
+      });
+
+      await applySubscriptionToUser(authUser.id, session.customer, subscription);
     }
 
     return res.json({ ok: true });
@@ -412,11 +574,15 @@ app.post('/webhook', async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        if (session.mode === 'subscription' && session.metadata?.storynest_user_id) {
-          await db.upgradeToPremium(
+        if (session.mode === 'subscription' && session.metadata?.storynest_user_id && session.subscription) {
+          const subscription = await stripe.subscriptions.retrieve(session.subscription, {
+            expand: ['items.data.price'],
+          });
+
+          await applySubscriptionToUser(
             session.metadata.storynest_user_id,
             session.customer,
-            session.subscription
+            subscription
           );
         }
         break;
@@ -424,28 +590,51 @@ app.post('/webhook', async (req, res) => {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object;
-        await db.downgradeToFree(subscription.customer);
+        await downgradeUserToFreeByCustomerId(subscription.customer);
         break;
       }
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object;
+        const userRecord = await db.getUserByStripeCustomerId(subscription.customer);
+
+        if (!userRecord) break;
+
         if (['active', 'trialing', 'past_due'].includes(subscription.status)) {
-          const userRecord = await db.getUserByStripeCustomerId(subscription.customer);
-          if (userRecord) {
-            await db.upgradeToPremium(userRecord.id, subscription.customer, subscription.id);
-          }
+          await applySubscriptionToUser(userRecord.id, subscription.customer, subscription);
         } else if (
           ['canceled', 'unpaid', 'incomplete_expired', 'paused'].includes(subscription.status)
         ) {
-          await db.downgradeToFree(subscription.customer);
+          await downgradeUserToFreeByCustomerId(subscription.customer);
         }
         break;
       }
 
       case 'invoice.paid': {
         const invoice = event.data.object;
-        await db.logRenewal(invoice.customer, invoice.id, invoice.amount_paid);
+        const subscriptionId = invoice.subscription;
+
+        let plan = null;
+
+        if (subscriptionId && invoice.customer) {
+          try {
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+              expand: ['items.data.price'],
+            });
+
+            const priceId = subscription?.items?.data?.[0]?.price?.id || null;
+            plan = resolvePlanFromPriceId(priceId);
+
+            const userRecord = await db.getUserByStripeCustomerId(invoice.customer);
+            if (userRecord && ['pro', 'pro_unlimited'].includes(plan)) {
+              await applySubscriptionToUser(userRecord.id, invoice.customer, subscription);
+            }
+          } catch (subError) {
+            console.warn('[invoice.paid] Could not refresh subscription state:', subError.message);
+          }
+        }
+
+        await db.logRenewal(invoice.customer, invoice.id, invoice.amount_paid, plan);
         break;
       }
 
@@ -470,5 +659,5 @@ app.get('/health', (_req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`StoryNest backend running on port ${PORT}`);
+  console.log(`Moonspun backend running on port ${PORT}`);
 });

@@ -34,10 +34,11 @@ export function generateStory(token, prompt) {
   });
 }
 
-export function createCheckoutSession(token) {
+export function createCheckoutSession(token, plan) {
   return request('/create-checkout-session', {
     method: 'POST',
     token,
+    body: { plan },
   });
 }
 

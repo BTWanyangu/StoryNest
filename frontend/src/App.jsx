@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AVATARS, LENGTHS, MORALS, STORY_ICONS, THEMES } from './constants';
 import { supabase } from './lib/supabase';
 import logo from './assets/logo.png';
-import { Sparkles, BookOpen, Users, Zap } from "lucide-react";
+import { Sparkles, BookOpen, Users, Zap } from 'lucide-react';
 import {
   createCheckoutSession,
   createPortalSession,
@@ -21,6 +21,7 @@ import Privacy from './components/Privacy';
 import ToS from './components/ToS';
 
 const initialForm = { email: '', password: '', name: '', parentConsent: false };
+
 const initialProfile = {
   name: '',
   age: 7,
@@ -30,16 +31,55 @@ const initialProfile = {
   companion_name: '',
   companion_type: '',
   companion_trait: '',
+  sibling_name: '',
+  sibling_age: '',
+  sibling_relationship: '',
+};
+
+const LANGUAGE_OPTIONS = [
+  'English',
+  'Spanish',
+  'French',
+  'German',
+  'Swahili',
+  'Italian',
+  'Portuguese',
+  'Japanese',
+];
+
+const PLAN_META = {
+  free: {
+    id: 'free',
+    label: 'Free',
+    displayPrice: '$0',
+    stories: 3,
+    children: 1,
+    isPaid: false,
+  },
+  pro: {
+    id: 'pro',
+    label: 'Pro',
+    displayPrice: '$8.99',
+    stories: 50,
+    children: 3,
+    isPaid: true,
+  },
+  pro_unlimited: {
+    id: 'pro_unlimited',
+    label: 'Pro Unlimited',
+    displayPrice: '$14.99',
+    stories: Infinity,
+    children: 6,
+    isPaid: true,
+  },
 };
 
 const features = [
-  [Sparkles, "Personalised", "Your child is the hero every time"],
-  [BookOpen, "Story series", "Save stories as episodes with cover art"],
-  [Users, "Multi-child ready", "Premium supports up to 3 child profiles"],
-  [Zap, "Fast generation", "New bedtime stories in 10–20 seconds"],
+  [Sparkles, 'Personalised', 'Your child is the hero every time'],
+  [BookOpen, 'Story series', 'Save stories as episodes with cover art'],
+  [Users, 'Multi-child ready', 'Pro supports 3 children, Pro Unlimited supports 6'],
+  [Zap, 'Fast generation', 'New bedtime stories in 10–20 seconds'],
 ];
-
-
 
 function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
@@ -66,77 +106,174 @@ function getSeriesLabel(profile) {
   return `${profile.name}'s Adventures`;
 }
 
-function buildPrompt(profile, theme, length, moral, wish, previousStories = [], autoMode = false, language = 'en') {
+function getPlanMeta(plan) {
+  return PLAN_META[plan] || PLAN_META.free;
+}
+
+function buildPrompt(profile, theme, length, moral, wish, previousStories = [], autoMode = false, language = 'English') {
+  const siblingBlock = profile.sibling_name
+    ? `
+SIBLING IN THE STORY: ${profile.sibling_name}, aged ${profile.sibling_age || 'unknown'}, who is ${profile.sibling_relationship || 'a sibling'}.
+Weave them in as a companion character.
+`
+    : '';
+
   const companionBlock = profile.companion_name
     ? `
-Recurring companion:
-- Name: ${profile.companion_name}
-- Type: ${profile.companion_type || 'magical friend'}
-- Personality: ${profile.companion_trait || 'kind and loyal'}
+RECURRING COMPANION: ${profile.companion_name} is ${[
+        profile.companion_type,
+        profile.companion_trait,
+      ]
+        .filter(Boolean)
+        .join(', ') || 'a beloved recurring companion'}.
+This companion appears in all of ${profile.name}'s stories. Reference them as someone already known and loved.
+`
+    : '';
 
-This companion must appear naturally throughout the story and feel emotionally important to ${profile.name}.
+  const todayMomentBlock = wish
+    ? `
+TONIGHT'S SPECIAL DETAIL: Something that happened in ${profile.name}'s real day today — weave this into the story naturally as the inciting incident or a key moment:
+"${wish}"
 `
     : '';
 
   const continuityBlock = previousStories.length
     ? `
-Previous adventures for continuity:
-${previousStories.map((story, index) => `
-Adventure ${index + 1}:
+SERIES CONTINUITY:
+These are previous adventures from ${profile.name}'s existing story world. Maintain continuity, emotional memory, and internal consistency. The new story must feel like the next true episode, not a reset.
+
+${previousStories
+  .map(
+    (story, index) => `
+PREVIOUS EPISODE ${index + 1}:
 Title: ${story.title}
 Theme: ${story.theme || 'bedtime adventure'}
-Episode: ${story.episode_number || index + 1}
+Episode number: ${story.episode_number || index + 1}
 Summary:
-${story.body.slice(0, 900)}
-`).join('\n')}
+${story.body.slice(0, 1200)}
+`
+  )
+  .join('\n')}
 
-Continuity rules:
-- Reference previous adventures naturally
-- Keep recurring characters consistent
-- Do not repeat the exact same plot
-- Make this feel like the next episode in the same story world
+AUTO-GENERATE MODE: ${autoMode ? 'YES — continue the ongoing series naturally from what has come before.' : 'NO — create a fresh adventure in the same living story world, while preserving continuity.'}
+
+CONSISTENCY RULES:
+- Reference past adventures naturally, never as a recap dump
+- Keep recurring characters emotionally continuous
+- Let the world evolve, but remain recognisable
+- Do not repeat the same conflict or gimmick
+- Make this feel like the next beloved episode
 `
     : `
-This is the first adventure in a new series. Establish a memorable story world and recurring emotional elements that can continue in future stories.
+This is the first story in a new Moonspun story world for ${profile.name}.
+If there is a recurring companion, establish them in a way that feels instantly beloved and memorable.
+AUTO-GENERATE MODE: ${autoMode ? 'Treat this as the opening episode of an ongoing series and create a world that clearly has room to continue.' : 'Create a deeply memorable standalone opening that can become a series later.'}
 `;
 
-  return `Write a bedtime story for a child named ${profile.name} who is ${profile.age} years old${profile.interests ? ` and loves ${profile.interests}` : ''}.
-Write the full title and story in this language: ${language}.
-If the language is not English, do not translate only parts of it — everything must be written naturally in ${language}.
-Story theme: ${theme}
-Story length: ${length}
-${moral ? `Moral lesson to include: ${moral}` : ''}
-${wish ? `Special request from parent: ${wish}` : ''}
-Mode: ${autoMode ? 'Continue the child’s ongoing story series automatically based on previous adventures.' : 'Create a new bedtime story in the child’s ongoing story world.'}
+  return `You are Moonspun — a master storyteller who crafts deeply personal bedtime
+adventures for children. Your stories feel as though they were written by a
+gifted human author who knows the child intimately. You write with warmth, wit,
+and wonder. You never mention AI, algorithms, or generation. You never break the
+magic. Every story you write is the best story that child has ever heard.
+
+CRAFT RULES — follow these without exception:
+
+1. OPEN WITH A BANG. Your first sentence must be so vivid, so unexpected,
+   or so delightful that a tired parent reads it aloud and immediately wants
+   to know what happens next. Never open with "${profile.name} was getting ready for
+   bed." Never open with weather. Open in the middle of something happening.
+
+2. USE THE CHILD'S NAME NATURALLY — not constantly. Use it the way a great
+   author uses a protagonist's name: sparingly, purposefully, at moments of
+   emotion or decision. Aim for once every 3–4 paragraphs.
+
+3. WEAVE INTERESTS IN, DON'T ANNOUNCE THEM. If the child loves something,
+   the story should feel made for that child — not like a template.
+
+4. WRITE IN SCENES, NOT SUMMARIES. Show the moment. Scenes create wonder.
+
+5. EVERY STORY NEEDS AN EMOTIONAL ARC. The child hero must face something,
+   rise to meet it in a way that reveals their character, and reach a
+   resolution that feels earned.
+
+6. THE ENDING IS SACRED. The final paragraph must settle the child gently
+   toward sleep and leave the parent with a feeling. Softer sounds, dimmer
+   light, the child hero finding peace. Never end abruptly.
+
+7. VOCABULARY MUST MATCH THE CHILD'S AGE.
+   Age 3–4: simple words, short sentences, rhythm and repetition.
+   Age 5–6: richer vocabulary, clear cause and effect.
+   Age 7–9: layered sentences, metaphor, humour, complex emotion.
+   Age 10+: near-adult prose, irony, interior thought.
+
+8. USE ONE UNEXPECTED DETAIL that could only exist in this story. Something
+   invented, vivid, and slightly magical. This is what parents screenshot.
+
+NEVER DO ANY OF THE FOLLOWING:
+— Open with "Once upon a time"
+— Open with the child waking up or getting ready for bed
+— Use the phrase "And so, ${profile.name} learned that..."
+— End with an explicit moral stated as a sentence
+— Describe the child as "brave" or "special" — show it instead
+— Use the word "magical" or "wonderful" or "amazing" — earn the feeling
+— Mention that the story was "generated" or "created" or "personalised"
+— Write dialogue that sounds like adults explaining things to children
+— Make the story feel like any other story the child could find anywhere
+
+Write a bedtime story for a child with the following details:
+
+CHILD'S NAME: ${profile.name}
+AGE: ${profile.age}
+INTERESTS: ${profile.interests || 'None given'}
+TONIGHT'S THEME: ${theme}
+STORY LENGTH: ${length}
+
+${siblingBlock}
+
+LANGUAGE: Write the story in ${language}, using vocabulary
+appropriate for a ${profile.age}-year-old language learner.
 
 ${companionBlock}
 
+${todayMomentBlock}
+
+${moral ? `SOFT MORAL DIRECTION: The emotional undercurrent may gently reward qualities related to ${moral}, but do not state the moral explicitly.\n` : ''}
+
 ${continuityBlock}
 
-Rules:
-- Start with TITLE: [creative whimsical story title] on its own line
-- Then write the story starting on the next line
-- ${profile.name} MUST be the main hero/protagonist throughout
-- Use age-appropriate vocabulary for a ${profile.age} year old
-- Include vivid, imaginative, sensory descriptions
-- Include emotional warmth and a sense of wonder
-- Include a moment of challenge that ${profile.name} overcomes with ${moral || 'cleverness or kindness'}
-- End peacefully and warmly — the story should make the child feel safe and sleepy
-- Split into clear paragraphs (blank line between each)
-- No violence, fear, or scary elements
-- Warm, cosy, magical tone throughout
-- If previous adventures exist, make this story feel like the next episode in that same world
-- Output only the title and story`;
+Remember: this is the best story this child has ever heard. Make it so.
+
+OUTPUT FORMAT:
+— Story title on the first line, title case, no quotes, no label
+— One blank line
+— Story in flowing paragraphs with one blank line between each
+— No preamble. No "Here is your story." No post-story commentary.
+— The story is the only thing you output until the vocabulary section below
+
+After the final paragraph of the story, leave one blank line, then add:
+
+---
+Tonight's word: [one word in ${language}] ([phonetic pronunciation])
+— [simple, beautiful one-sentence definition written as if spoken gently
+to the child, not defined clinically].`;
 }
 
 function parseStory(raw, profile, theme, moral, previousStories = []) {
-  let title = `${profile.name}'s Magical Adventure`;
-  let body = raw.trim();
-  const match = raw.match(/^TITLE:\s*(.+)/m);
+  const cleaned = raw.trim();
+  const labeledTitleMatch = cleaned.match(/^TITLE:\s*(.+)$/im);
 
-  if (match) {
-    title = match[1].trim();
-    body = raw.replace(/^TITLE:\s*.+\n?/m, '').trim();
+  let title = `${profile.name}'s Moonspun Adventure`;
+  let body = cleaned;
+
+  if (labeledTitleMatch) {
+    title = labeledTitleMatch[1].trim();
+    body = cleaned.replace(/^TITLE:\s*.+\n?/im, '').trim();
+  } else {
+    const parts = cleaned.split(/\n\s*\n/);
+    if (parts.length > 1 && parts[0].trim().length < 120) {
+      title = parts[0].trim();
+      body = parts.slice(1).join('\n\n').trim();
+    }
   }
 
   const nextEpisode = previousStories.length + 1;
@@ -160,15 +297,16 @@ function parseStory(raw, profile, theme, moral, previousStories = []) {
 
 function StarsBackground() {
   const stars = useMemo(
-    () => Array.from({ length: 90 }, (_, idx) => ({
-      id: idx,
-      size: Math.random() * 2.5 + 0.5,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      delay: Math.random() * 6,
-      duration: 2 + Math.random() * 4,
-      opacity: Math.random() * 0.4 + 0.1,
-    })),
+    () =>
+      Array.from({ length: 90 }, (_, idx) => ({
+        id: idx,
+        size: Math.random() * 2.5 + 0.5,
+        left: Math.random() * 100,
+        top: Math.random() * 100,
+        delay: Math.random() * 6,
+        duration: 2 + Math.random() * 4,
+        opacity: Math.random() * 0.4 + 0.1,
+      })),
     []
   );
 
@@ -195,28 +333,6 @@ function StarsBackground() {
   );
 }
 
-function handleLanguageChange(languageCode) {
-  setSelectedLanguage(languageCode);
-  setOpen(false);
-
-  if (languageCode === 'en') {
-    document.cookie = 'googtrans=/en/en;path=/';
-    document.cookie = `googtrans=/en/en;path=/;domain=${window.location.hostname}`;
-    window.location.reload();
-    return;
-  }
-
-  const tryTranslate = (attempt = 0) => {
-    const worked = applyGoogleTranslate(languageCode);
-
-    if (!worked && attempt < 10) {
-      setTimeout(() => tryTranslate(attempt + 1), 500);
-    }
-  };
-
-  tryTranslate();
-}
-
 function Toast({ toast }) {
   return (
     <AnimatePresence>
@@ -236,17 +352,20 @@ function Toast({ toast }) {
 }
 
 function StoryParagraphs({ text }) {
-  return text.split(/\n\n+/).filter(Boolean).map((paragraph, index) => (
-    <motion.p
-      key={index}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className="leading-8 text-[15px] text-text/95"
-    >
-      {paragraph}
-    </motion.p>
-  ));
+  return text
+    .split(/\n\n+/)
+    .filter(Boolean)
+    .map((paragraph, index) => (
+      <motion.p
+        key={index}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.03 }}
+        className="leading-8 text-[15px] text-text/95"
+      >
+        {paragraph}
+      </motion.p>
+    ));
 }
 
 function MotionCard({ children, className = '', delay = 0 }) {
@@ -276,6 +395,51 @@ function MotionButton({ children, className = '', ...props }) {
   );
 }
 
+function OptionGroup({ title, options, value, onChange }) {
+  return (
+    <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
+      <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">{title}</div>
+      <div className="flex flex-wrap gap-3">
+        {options.map((option) => {
+          const selected = option === value;
+          return (
+            <MotionButton
+              key={option}
+              onClick={() => onChange(option)}
+              className={classNames(
+                'rounded-full border px-4 py-2 text-sm font-bold transition',
+                selected
+                  ? 'border-moon bg-moon/10 text-moon'
+                  : 'border-white/10 bg-night3 text-text hover:border-purple2 hover:text-purple3'
+              )}
+            >
+              {option}
+            </MotionButton>
+          );
+        })}
+      </div>
+    </MotionCard>
+  );
+}
+
+function StatBox({ label, value }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-night3/50 p-4 text-center">
+      <div className="text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">{label}</div>
+      <div className="mt-2 text-3xl font-extrabold text-star">{value}</div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between border-b border-white/10 py-3 text-sm">
+      <div className="font-bold text-muted">{label}</div>
+      <div className="text-right text-text">{value}</div>
+    </div>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState('landing');
   const [authMode, setAuthMode] = useState('login');
@@ -291,6 +455,7 @@ export default function App() {
   const [selectedLength, setSelectedLength] = useState(LENGTHS[0]);
   const [selectedMoral, setSelectedMoral] = useState('');
   const [wish, setWish] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('storynest_selected_language') || 'English');
   const [currentStory, setCurrentStory] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [storyModalIndex, setStoryModalIndex] = useState(null);
@@ -303,22 +468,22 @@ export default function App() {
   const [loadingAccount, setLoadingAccount] = useState(true);
   const [speakingStoryId, setSpeakingStoryId] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState('pro');
 
   const token = session?.access_token;
   const user = session?.user;
   const storiesGenerated = userRecord?.stories_generated ?? 0;
-  const isSubscribed = subscription.plan === 'premium';
-  const maxProfiles = isSubscribed ? 3 : 1;
+  const currentPlan = subscription.plan || userRecord?.plan || 'free';
+  const planMeta = getPlanMeta(currentPlan);
+  const isPaidPlan = planMeta.isPaid;
+  const maxProfiles = planMeta.children;
+  const maxStories = planMeta.stories;
   const selectedProfile = profiles.find((item) => item.id === selectedProfileId) || profiles[0] || null;
 
   const selectedProfileStories = useMemo(
     () => (selectedProfile ? library.filter((item) => item.child_id === selectedProfile.id) : []),
     [library, selectedProfile]
   );
-
-  const [selectedLanguage, setSelectedLanguage] = useState(
-  () => localStorage.getItem('storynest_selected_language') || 'en'
-);
 
   const groupedLibrary = useMemo(() => {
     const groups = {};
@@ -351,8 +516,8 @@ export default function App() {
   }
 
   function speakStory(story) {
-    if (!isSubscribed) {
-      showToast('Voice narration is a Premium feature.', '#ff6b6b');
+    if (!isPaidPlan) {
+      showToast('Voice narration is available on paid plans.', '#ff6b6b');
       return;
     }
 
@@ -377,19 +542,14 @@ export default function App() {
   }
 
   useEffect(() => {
+    localStorage.setItem('storynest_selected_language', selectedLanguage);
+  }, [selectedLanguage]);
+
+  useEffect(() => {
     if (!toast) return undefined;
     const timer = setTimeout(() => setToast(null), 3500);
     return () => clearTimeout(timer);
   }, [toast]);
-
-  useEffect(() => {
-  const handler = (event) => {
-    setSelectedLanguage(event.detail?.language || 'en');
-  };
-
-  window.addEventListener('storynest-language-change', handler);
-  return () => window.removeEventListener('storynest-language-change', handler);
-}, []);
 
   useEffect(() => {
     let ignore = false;
@@ -420,11 +580,12 @@ export default function App() {
       setLoadingAccount(true);
       setScreen('dashboard');
 
-      const [{ data: userData, error: userErr }, { data: children, error: childrenErr }, { data: stories, error: storiesErr }] = await Promise.all([
-        supabase.from('users').select('*').eq('id', user.id).single(),
-        supabase.from('children').select('*').eq('user_id', user.id).order('created_at'),
-        supabase.from('stories').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      ]);
+      const [{ data: userData, error: userErr }, { data: children, error: childrenErr }, { data: stories, error: storiesErr }] =
+        await Promise.all([
+          supabase.from('users').select('*').eq('id', user.id).single(),
+          supabase.from('children').select('*').eq('user_id', user.id).order('created_at'),
+          supabase.from('stories').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+        ]);
 
       if (userErr) console.error(userErr);
       if (childrenErr) console.error(childrenErr);
@@ -438,9 +599,10 @@ export default function App() {
       try {
         const status = await getSubscriptionStatus(token);
         setSubscription(status);
-        if (status.plan === 'premium' && userData?.plan !== 'premium') {
-          await supabase.from('users').update({ plan: 'premium' }).eq('id', user.id);
-          setUserRecord((prev) => (prev ? { ...prev, plan: 'premium' } : prev));
+
+        if (status.plan && status.plan !== userData?.plan) {
+          await supabase.from('users').update({ plan: status.plan }).eq('id', user.id);
+          setUserRecord((prev) => (prev ? { ...prev, plan: status.plan } : prev));
         }
       } catch (error) {
         console.error(error);
@@ -453,7 +615,7 @@ export default function App() {
           await syncStripeSuccess(token, sessionId);
           const latest = await getSubscriptionStatus(token);
           setSubscription(latest);
-          showToast('🌙 Premium activated successfully!');
+          showToast('🌙 Your plan is now active!');
         } catch (error) {
           console.error(error);
         } finally {
@@ -479,9 +641,10 @@ export default function App() {
     if (authMode === 'signup' && !parentConsent) return setAuthError('Please confirm you are a parent or guardian');
 
     setAuthError('');
-    const payload = authMode === 'signup'
-      ? await supabase.auth.signUp({ email, password, options: { data: { name } } })
-      : await supabase.auth.signInWithPassword({ email, password });
+    const payload =
+      authMode === 'signup'
+        ? await supabase.auth.signUp({ email, password, options: { data: { name } } })
+        : await supabase.auth.signInWithPassword({ email, password });
 
     if (payload.error) {
       setAuthError(payload.error.message);
@@ -500,7 +663,7 @@ export default function App() {
 
   async function saveProfile() {
     if (!profileForm.name.trim()) {
-      setProfileError('Please enter your child\'s name');
+      setProfileError("Please enter your child's name");
       return;
     }
     if (!profileForm.consent) {
@@ -508,21 +671,33 @@ export default function App() {
       return;
     }
     if (profiles.length >= maxProfiles) {
-      showToast(isSubscribed ? 'Maximum of 3 children reached.' : 'Free plan supports 1 child. Upgrade for up to 3!', '#ff6b6b');
+      showToast(
+        isPaidPlan
+          ? `Maximum of ${maxProfiles} children reached for your plan.`
+          : 'Free plan supports 1 child. Upgrade for more.',
+        '#ff6b6b'
+      );
       return;
     }
 
-    const { data, error } = await supabase.from('children').insert({
-      user_id: user.id,
-      name: profileForm.name.trim(),
-      age: Number(profileForm.age),
-      interests: profileForm.interests.trim(),
-      avatar: profileForm.avatar,
-      companion_name: profileForm.companion_name.trim(),
-      companion_type: profileForm.companion_type.trim(),
-      companion_trait: profileForm.companion_trait.trim(),
-      consent_given_at: new Date().toISOString(),
-    }).select().single();
+    const { data, error } = await supabase
+      .from('children')
+      .insert({
+        user_id: user.id,
+        name: profileForm.name.trim(),
+        age: Number(profileForm.age),
+        interests: profileForm.interests.trim(),
+        avatar: profileForm.avatar,
+        companion_name: profileForm.companion_name.trim(),
+        companion_type: profileForm.companion_type.trim(),
+        companion_trait: profileForm.companion_trait.trim(),
+        sibling_name: profileForm.sibling_name.trim(),
+        sibling_age: profileForm.sibling_age ? Number(profileForm.sibling_age) : null,
+        sibling_relationship: profileForm.sibling_relationship.trim(),
+        consent_given_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
 
     if (error) {
       showToast('Could not save profile', '#ff6b6b');
@@ -557,12 +732,21 @@ export default function App() {
 
   async function handleGenerateStory(autoMode = false) {
     if (!selectedProfile || !token) return;
-    if (!isSubscribed && storiesGenerated >= 3) {
-      showToast('You have used your 3 free stories. Upgrade to continue.', '#ff6b6b');
+
+    if (storiesGenerated >= maxStories) {
+      showToast(
+        currentPlan === 'free'
+          ? 'You have used your 3 free stories. Upgrade to continue.'
+          : currentPlan === 'pro'
+          ? 'You have reached your 50-story monthly allowance. Upgrade to Pro Unlimited.'
+          : 'Story limit reached.',
+        '#ff6b6b'
+      );
       return;
     }
-    if (autoMode && !isSubscribed) {
-      showToast('Auto-generate next episode is a Premium feature.', '#ff6b6b');
+
+    if (autoMode && !isPaidPlan) {
+      showToast('Auto-generate next episode is available on paid plans.', '#ff6b6b');
       return;
     }
 
@@ -581,13 +765,7 @@ export default function App() {
       );
 
       const data = await generateStory(token, prompt);
-      const story = parseStory(
-        data.text,
-        selectedProfile,
-        selectedTheme,
-        selectedMoral,
-        previousStories
-      );
+      const story = parseStory(data.text, selectedProfile, selectedTheme, selectedMoral, previousStories);
 
       setCurrentStory(story);
 
@@ -609,27 +787,37 @@ export default function App() {
   async function saveCurrentStory() {
     if (!currentStory) return;
 
-    const alreadySaved = library.some((item) => item.title === currentStory.title && item.body === currentStory.body);
+    const alreadySaved = library.some(
+      (item) => item.title === currentStory.title && item.body === currentStory.body
+    );
     if (alreadySaved) {
       showToast('Already saved to your library!');
       return;
     }
 
-    const episodeCount = library.filter((s) => (s.series_id || s.child_id) === (currentStory.series_id || currentStory.child_id)).length;
+    const episodeCount = library.filter(
+      (s) => (s.series_id || s.child_id) === (currentStory.series_id || currentStory.child_id)
+    ).length;
 
-    const { data, error } = await supabase.from('stories').insert({
-      user_id: user.id,
-      child_id: currentStory.child_id,
-      child_name: currentStory.child_name,
-      child_avatar: currentStory.child_avatar,
-      title: currentStory.title,
-      body: currentStory.body,
-      theme: currentStory.theme,
-      moral: currentStory.moral || selectedMoral || null,
-      series_id: currentStory.series_id || currentStory.child_id,
-      episode_number: currentStory.episode_number || episodeCount + 1,
-      cover_image: currentStory.cover_image || `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentStory.title)}`,
-    }).select().single();
+    const { data, error } = await supabase
+      .from('stories')
+      .insert({
+        user_id: user.id,
+        child_id: currentStory.child_id,
+        child_name: currentStory.child_name,
+        child_avatar: currentStory.child_avatar,
+        title: currentStory.title,
+        body: currentStory.body,
+        theme: currentStory.theme,
+        moral: currentStory.moral || selectedMoral || null,
+        series_id: currentStory.series_id || currentStory.child_id,
+        episode_number: currentStory.episode_number || episodeCount + 1,
+        cover_image:
+          currentStory.cover_image ||
+          `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentStory.title)}`,
+      })
+      .select()
+      .single();
 
     if (error) {
       showToast('Could not save story', '#ff6b6b');
@@ -653,9 +841,9 @@ export default function App() {
     showToast(`"${story.title}" deleted`, '#ff9898');
   }
 
-  async function startCheckout() {
+  async function startCheckout(planId = selectedCheckoutPlan) {
     try {
-      const data = await createCheckoutSession(token);
+      const data = await createCheckoutSession(token, planId);
       window.location.href = data.url;
     } catch (error) {
       showToast(error.message, '#ff6b6b');
@@ -684,7 +872,11 @@ export default function App() {
   }
 
   const accountSince = user ? formatSince(user.created_at) : '—';
-  const firstName = userRecord?.name?.split(' ')[0] || user?.user_metadata?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const firstName =
+    userRecord?.name?.split(' ')[0] ||
+    user?.user_metadata?.name?.split(' ')[0] ||
+    user?.email?.split('@')[0] ||
+    'there';
 
   const tabItems = [
     { id: 'generate', label: 'New Story', icon: '✨' },
@@ -705,20 +897,29 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/80 px-4 py-4 backdrop-blur md:px-8"
             >
-              <MotionButton
-  onClick={() => setScreen('landing')}
-  className="flex items-center gap-2 font-display"
->
-  <img
-    src={logo}
-    alt="StoryNest Logo"
-    className="h-24 md:h-24 w-auto object-contain"
-  />
-</MotionButton>
+              <MotionButton onClick={() => setScreen('landing')} className="flex items-center gap-2 font-display">
+                <img src={logo} alt="Moonspun Logo" className="h-24 md:h-24 w-auto object-contain" />
+              </MotionButton>
 
               <div className="hidden items-center gap-3 sm:flex">
-                <MotionButton onClick={() => { setAuthMode('login'); setScreen('auth'); }} className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-text transition hover:border-purple2 hover:text-purple3">Sign in</MotionButton>
-                <MotionButton onClick={() => { setAuthMode('signup'); setScreen('auth'); }} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple">Start free</MotionButton>
+                <MotionButton
+                  onClick={() => {
+                    setAuthMode('login');
+                    setScreen('auth');
+                  }}
+                  className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-text transition hover:border-purple2 hover:text-purple3"
+                >
+                  Sign in
+                </MotionButton>
+                <MotionButton
+                  onClick={() => {
+                    setAuthMode('signup');
+                    setScreen('auth');
+                  }}
+                  className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple"
+                >
+                  Start free
+                </MotionButton>
               </div>
 
               <MotionButton
@@ -738,8 +939,26 @@ export default function App() {
                   className="border-b border-white/10 bg-night2 px-4 py-4 sm:hidden"
                 >
                   <div className="flex flex-col gap-3">
-                    <MotionButton onClick={() => { setAuthMode('login'); setScreen('auth'); setMobileMenuOpen(false); }} className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-text">Sign in</MotionButton>
-                    <MotionButton onClick={() => { setAuthMode('signup'); setScreen('auth'); setMobileMenuOpen(false); }} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">Start free</MotionButton>
+                    <MotionButton
+                      onClick={() => {
+                        setAuthMode('login');
+                        setScreen('auth');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-text"
+                    >
+                      Sign in
+                    </MotionButton>
+                    <MotionButton
+                      onClick={() => {
+                        setAuthMode('signup');
+                        setScreen('auth');
+                        setMobileMenuOpen(false);
+                      }}
+                      className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
+                    >
+                      Start free
+                    </MotionButton>
                   </div>
                 </motion.div>
               )}
@@ -771,7 +990,8 @@ export default function App() {
                     transition={{ delay: 0.1 }}
                     className="mb-8 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-[1.05rem]"
                   >
-                    Moonspun creates personalised bedtime stories based on your child&apos;s name, age, interests, and chosen theme — magical, calming, and ready in seconds.
+                    Moonspun creates deeply personal bedtime stories shaped by your child&apos;s name, age,
+                    interests, theme, and story world — warm, vivid, and ready in seconds.
                   </motion.p>
 
                   <motion.div
@@ -780,39 +1000,45 @@ export default function App() {
                     transition={{ delay: 0.15 }}
                     className="mb-12 flex w-full flex-col justify-center gap-4 sm:w-auto sm:flex-row"
                   >
-                    <MotionButton onClick={() => { setAuthMode('signup'); setScreen('auth'); }} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon">
+                    <MotionButton
+                      onClick={() => {
+                        setAuthMode('signup');
+                        setScreen('auth');
+                      }}
+                      className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon"
+                    >
                       Create free account
                     </MotionButton>
-                    <MotionButton onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-full border border-white/20 px-8 py-4 text-base font-bold text-text transition hover:border-purple2 hover:text-purple3">
+                    <MotionButton
+                      onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
+                      className="rounded-full border border-white/20 px-8 py-4 text-base font-bold text-text transition hover:border-purple2 hover:text-purple3"
+                    >
                       See pricing
                     </MotionButton>
                   </motion.div>
-<div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-  {features.map(([Icon, title, desc], index) => (
-    <MotionCard
-      key={title}
-      delay={0.06 * index}
-      className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-6 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#f5c85b]/45 hover:shadow-[0_18px_40px_rgba(11,10,40,0.42)]"
-    >
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-70" />
-      <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-[#f5c85b]/10 blur-2xl opacity-0 transition duration-300 group-hover:opacity-100" />
 
-      <div className="mb-5 flex justify-center">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-inner shadow-white/5 transition duration-300 group-hover:scale-105 group-hover:border-[#f5c85b]/30 group-hover:bg-[#f5c85b]/[0.08]">
-          <Icon className="h-6 w-6 text-[#f5c85b]" strokeWidth={2.1} />
-        </div>
-      </div>
+                  <div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    {features.map(([Icon, title, desc], index) => (
+                      <MotionCard
+                        key={title}
+                        delay={0.06 * index}
+                        className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-6 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#f5c85b]/45 hover:shadow-[0_18px_40px_rgba(11,10,40,0.42)]"
+                      >
+                        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-70" />
+                        <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-[#f5c85b]/10 blur-2xl opacity-0 transition duration-300 group-hover:opacity-100" />
 
-      <h3 className="mb-2 text-[1.02rem] font-semibold tracking-tight text-white">
-        {title}
-      </h3>
+                        <div className="mb-5 flex justify-center">
+                          <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-inner shadow-white/5 transition duration-300 group-hover:scale-105 group-hover:border-[#f5c85b]/30 group-hover:bg-[#f5c85b]/[0.08]">
+                            <Icon className="h-6 w-6 text-[#f5c85b]" strokeWidth={2.1} />
+                          </div>
+                        </div>
 
-      <p className="text-sm leading-6 text-slate-300">
-        {desc}
-      </p>
-    </MotionCard>
-  ))}
-</div>
+                        <h3 className="mb-2 text-[1.02rem] font-semibold tracking-tight text-white">{title}</h3>
+                        <p className="text-sm leading-6 text-slate-300">{desc}</p>
+                      </MotionCard>
+                    ))}
+                  </div>
+
                   <motion.section
                     id="pricing"
                     initial={{ opacity: 0, y: 20 }}
@@ -820,18 +1046,41 @@ export default function App() {
                     viewport={{ once: true }}
                     className="mt-14 w-full text-center"
                   >
-                    <h2 className="mb-2 font-display text-3xl text-moon">Simple pricing</h2>
-                    <p className="mb-6 text-muted">Try StoryNest free, then unlock unlimited bedtime magic.</p>
+                    <h2 className="mb-2 font-display text-3xl text-moon">Choose your plan</h2>
+                    <p className="mb-6 text-muted">
+                      Both paid plans include a 3-day free trial. Parents are charged automatically after the
+                      free trial ends unless they cancel.
+                    </p>
 
                     <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
                       <MotionCard className="w-full max-w-[300px] rounded-xl2 border border-white/10 bg-card p-7">
                         <div className="mb-2 text-base font-extrabold text-star">Free</div>
-                        <div className="text-4xl font-extrabold text-moon">£0<span className="text-sm font-normal text-muted">/month</span></div>
+                        <div className="text-4xl font-extrabold text-moon">
+                          $0<span className="text-sm font-normal text-muted">/month</span>
+                        </div>
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
                           <div>✓ 3 free stories</div>
                           <div>✓ 1 child profile</div>
                           <div>✓ Save up to 3 free stories</div>
-                          <div className="opacity-40">✗ Auto next episode & narration</div>
+                          <div className="opacity-40">✗ Auto next episode</div>
+                          <div className="opacity-40">✗ Voice narration</div>
+                        </div>
+                      </MotionCard>
+
+                      <MotionCard className="w-full max-w-[300px] rounded-xl2 border border-purple2/30 bg-card p-7">
+                        <div className="mb-2 text-base font-extrabold text-star">Pro</div>
+                        <div className="text-4xl font-extrabold text-moon">
+                          $8.99<span className="text-sm font-normal text-muted">/month</span>
+                        </div>
+                        <div className="mt-4 space-y-2 text-left text-sm text-text">
+                          <div>✓ 50 stories per month</div>
+                          <div>✓ Up to 3 child profiles</div>
+                          <div>✓ Story series library + covers</div>
+                          <div>✓ Auto next episodes</div>
+                          <div>✓ 3-day free trial</div>
+                        </div>
+                        <div className="mt-4 text-xs leading-5 text-muted">
+                          Charged automatically after the 3-day free trial ends.
                         </div>
                       </MotionCard>
 
@@ -839,13 +1088,19 @@ export default function App() {
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
                           MOST POPULAR
                         </div>
-                        <div className="mb-2 text-base font-extrabold text-star">Premium</div>
-                        <div className="text-4xl font-extrabold text-moon">£5<span className="text-sm font-normal text-muted">/month</span></div>
+                        <div className="mb-2 text-base font-extrabold text-star">Pro Unlimited</div>
+                        <div className="text-4xl font-extrabold text-moon">
+                          $14.99<span className="text-sm font-normal text-muted">/month</span>
+                        </div>
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
                           <div>✓ Unlimited stories</div>
-                          <div>✓ Up to 3 child profiles</div>
+                          <div>✓ Up to 6 child profiles</div>
                           <div>✓ Story series library + covers</div>
-                          <div>✓ Auto next episodes + narration</div>
+                          <div>✓ Auto next episodes + voice narration</div>
+                          <div>✓ 3-day free trial</div>
+                        </div>
+                        <div className="mt-4 text-xs leading-5 text-muted">
+                          Charged automatically after the 3-day free trial ends.
                         </div>
                       </MotionCard>
                     </div>
@@ -878,53 +1133,93 @@ export default function App() {
                     {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
                   </h2>
                   <p className="mb-7 text-center text-sm text-muted">
-                    {authMode === 'signup' ? 'Start with 3 free stories — no card needed' : 'Sign in to access your personalized stories and profiles'}
+                    {authMode === 'signup'
+                      ? 'Start with 3 free stories — no card needed'
+                      : 'Sign in to access your personalized stories and profiles'}
                   </p>
 
                   {authMode === 'signup' && (
                     <div className="mb-4">
-                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Your name</label>
-                      <input value={authForm.name} onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Jane Parent" />
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Your name
+                      </label>
+                      <input
+                        value={authForm.name}
+                        onChange={(e) => setAuthForm((prev) => ({ ...prev, name: e.target.value }))}
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="Jane Parent"
+                      />
                     </div>
                   )}
 
                   <div className="mb-4">
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Email</label>
-                    <input value={authForm.email} onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="you@example.com" />
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                      Email
+                    </label>
+                    <input
+                      value={authForm.email}
+                      onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
+                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                      placeholder="you@example.com"
+                    />
                   </div>
 
                   <div className="mb-4">
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Password</label>
-                    <input type="password" value={authForm.password} onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="At least 6 characters" onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()} />
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                      Password
+                    </label>
+                    <input
+                      type="password"
+                      value={authForm.password}
+                      onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
+                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                      placeholder="At least 6 characters"
+                      onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()}
+                    />
                   </div>
 
                   {authMode === 'signup' && (
                     <label className="mb-4 flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted">
-                      <input type="checkbox" checked={authForm.parentConsent} onChange={(e) => setAuthForm((prev) => ({ ...prev, parentConsent: e.target.checked }))} className="mt-1" />
+                      <input
+                        type="checkbox"
+                        checked={authForm.parentConsent}
+                        onChange={(e) =>
+                          setAuthForm((prev) => ({ ...prev, parentConsent: e.target.checked }))
+                        }
+                        className="mt-1"
+                      />
                       I confirm I am a parent or guardian creating this account and I agree to the Privacy Policy and Terms.
                     </label>
                   )}
 
                   {authError && <div className="mb-4 text-sm text-coral">{authError}</div>}
 
-                  <MotionButton onClick={handleAuthSubmit} className="w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple">
+                  <MotionButton
+                    onClick={handleAuthSubmit}
+                    className="w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple"
+                  >
                     {authMode === 'signup' ? 'Create account' : 'Sign in'}
                   </MotionButton>
 
                   <div className="mt-4 text-center text-sm text-muted">
                     {authMode === 'signup' ? 'Already have an account?' : `Don't have an account?`}{' '}
-                    <button onClick={() => setAuthMode((prev) => prev === 'signup' ? 'login' : 'signup')} className="text-purple3 underline">
+                    <button
+                      onClick={() => setAuthMode((prev) => (prev === 'signup' ? 'login' : 'signup'))}
+                      className="text-purple3 underline"
+                    >
                       {authMode === 'signup' ? 'Sign in' : 'Sign up free'}
                     </button>
                   </div>
                 </motion.div>
               </main>
             )}
+
             {screen === 'privacy' && (
               <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
                 <Privacy />
               </main>
             )}
+
             {screen === 'ToS' && (
               <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
                 <ToS />
@@ -938,7 +1233,9 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/85 px-4 py-3 backdrop-blur md:px-6"
             >
-              <div className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]"><span className="text-[1.5rem] md:text-[1.6rem]">🌙</span> </div>
+              <div className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]">
+                <span className="text-[1.5rem] md:text-[1.6rem]">🌙</span>
+              </div>
               <div className="text-xs text-muted sm:text-sm">Hi, {firstName} 👋</div>
             </motion.nav>
 
@@ -970,14 +1267,19 @@ export default function App() {
                 {selectedTab === 'generate' && (
                   <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Create a new story</h2>
-                    <p className="mb-6 text-sm leading-6 text-muted">Choose a child, theme, and length — then let StoryNest write tonight&apos;s bedtime story.</p>
+                    <p className="mb-6 text-sm leading-6 text-muted">
+                      Choose a child, theme, length, and language — then let Moonspun write tonight&apos;s bedtime story.
+                    </p>
 
                     {!selectedProfile && (
                       <MotionCard className="mb-6 rounded-xl2 border border-dashed border-white/15 bg-card/30 p-8 text-center">
                         <div className="mb-3 text-5xl">🧒</div>
                         <div className="mb-2 font-bold text-star">No children yet</div>
                         <div className="mb-4 text-sm text-muted">Add your first child profile to start generating stories.</div>
-                        <MotionButton onClick={() => setProfileModalOpen(true)} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">
+                        <MotionButton
+                          onClick={() => setProfileModalOpen(true)}
+                          className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
+                        >
                           Add your first child
                         </MotionButton>
                       </MotionCard>
@@ -985,7 +1287,9 @@ export default function App() {
 
                     <div className={classNames('space-y-6', !selectedProfile && 'opacity-35')}>
                       <div>
-                        <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Choose child</div>
+                        <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                          Choose child
+                        </div>
                         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                           {profiles.map((profile, index) => (
                             <motion.button
@@ -1006,13 +1310,25 @@ export default function App() {
                               <div className="mb-2 text-5xl">{profile.avatar}</div>
                               <div className="text-base font-extrabold text-star">{profile.name}</div>
                               <div className="text-xs text-muted">{profile.age} years old</div>
-                              {profile.interests && <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>}
-                              {profile.companion_name && <div className="mt-1 text-[11px] text-moon">Companion: {profile.companion_name}</div>}
+                              {profile.interests && (
+                                <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>
+                              )}
+                              {profile.companion_name && (
+                                <div className="mt-1 text-[11px] text-moon">Companion: {profile.companion_name}</div>
+                              )}
+                              {profile.sibling_name && (
+                                <div className="mt-1 text-[11px] text-muted">
+                                  Sibling: {profile.sibling_name}
+                                </div>
+                              )}
                             </motion.button>
                           ))}
 
                           {profiles.length < maxProfiles && (
-                            <MotionButton onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
+                            <MotionButton
+                              onClick={() => setProfileModalOpen(true)}
+                              className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text"
+                            >
                               <div className="mb-2 text-4xl">➕</div>
                               <div className="font-bold">Add child</div>
                             </MotionButton>
@@ -1022,31 +1338,119 @@ export default function App() {
 
                       <OptionGroup title="Theme" options={THEMES} value={selectedTheme} onChange={setSelectedTheme} />
                       <OptionGroup title="Length" options={LENGTHS} value={selectedLength} onChange={setSelectedLength} />
-                      <OptionGroup title="Optional moral" options={MORALS} value={selectedMoral} onChange={(value) => setSelectedMoral(value === selectedMoral ? '' : value)} />
+                      <OptionGroup
+                        title="Optional moral direction"
+                        options={MORALS}
+                        value={selectedMoral}
+                        onChange={(value) => setSelectedMoral(value === selectedMoral ? '' : value)}
+                      />
 
                       <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
-                        <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Optional custom wish</label>
-                        <textarea value={wish} onChange={(e) => setWish(e.target.value)} rows={3} className="w-full rounded-xl2 border border-white/10 bg-card px-4 py-3 text-sm text-text outline-none transition focus:border-purple2" placeholder="e.g. Please include a friendly fox and a glowing lantern." />
+                        <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                          Story language
+                        </label>
+                        <select
+                          value={selectedLanguage}
+                          onChange={(e) => setSelectedLanguage(e.target.value)}
+                          className="w-full rounded-xl2 border border-white/10 bg-card px-4 py-3 text-sm text-text outline-none transition focus:border-purple2"
+                        >
+                          {LANGUAGE_OPTIONS.map((language) => (
+                            <option key={language} value={language}>
+                              {language}
+                            </option>
+                          ))}
+                        </select>
+                      </MotionCard>
+
+                      <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
+                        <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                          Tonight&apos;s special detail
+                        </label>
+                        <textarea
+                          value={wish}
+                          onChange={(e) => setWish(e.target.value)}
+                          rows={3}
+                          className="w-full rounded-xl2 border border-white/10 bg-card px-4 py-3 text-sm text-text outline-none transition focus:border-purple2"
+                          placeholder="e.g. She lost a tooth today and kept checking under her pillow."
+                        />
                       </MotionCard>
 
                       {selectedProfile && selectedProfileStories.length > 0 && (
                         <MotionCard className="rounded-xl2 border border-white/10 bg-card p-4">
                           <div className="mb-1 font-bold text-star">{getSeriesLabel(selectedProfile)}</div>
                           <div className="text-sm text-muted">
-                            {selectedProfileStories.length} saved episode{selectedProfileStories.length === 1 ? '' : 's'} in this story world.
+                            {selectedProfileStories.length} saved episode
+                            {selectedProfileStories.length === 1 ? '' : 's'} in this story world.
                           </div>
                         </MotionCard>
                       )}
 
-                      {!isSubscribed && (
+                      {!isPaidPlan && (
                         <MotionCard className="rounded-xl2 border border-moon/25 bg-card p-4">
                           <div className="mb-1 font-bold text-moon">Free stories used: {storiesGenerated}/3</div>
-                          <div className="mb-3 text-sm text-muted">After 3 stories, upgrade to Premium for unlimited stories, story series, narration, and up to 3 child profiles.</div>
-                          {storiesGenerated >= 3 && (
-                            <MotionButton onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">
-                              Subscribe — £5/mo
+                          <div className="mb-3 text-sm text-muted">
+                            Upgrade after your free stories to unlock Moonspun&apos;s paid plans. Both paid plans
+                            include a 3-day free trial and the parent will be charged automatically after the trial ends.
+                          </div>
+
+                          <div className="mb-4 grid gap-3 md:grid-cols-2">
+                            <button
+                              onClick={() => setSelectedCheckoutPlan('pro')}
+                              className={classNames(
+                                'rounded-xl border px-4 py-3 text-left transition',
+                                selectedCheckoutPlan === 'pro'
+                                  ? 'border-moon bg-moon/10 text-moon'
+                                  : 'border-white/10 bg-night3 text-text'
+                              )}
+                            >
+                              <div className="font-bold">Pro</div>
+                              <div className="text-sm text-muted">$8.99/mo · 50 stories · 3 children</div>
+                            </button>
+
+                            <button
+                              onClick={() => setSelectedCheckoutPlan('pro_unlimited')}
+                              className={classNames(
+                                'rounded-xl border px-4 py-3 text-left transition',
+                                selectedCheckoutPlan === 'pro_unlimited'
+                                  ? 'border-moon bg-moon/10 text-moon'
+                                  : 'border-white/10 bg-night3 text-text'
+                              )}
+                            >
+                              <div className="font-bold">Pro Unlimited</div>
+                              <div className="text-sm text-muted">$14.99/mo · Unlimited stories · 6 children</div>
+                            </button>
+                          </div>
+
+                          <div className="mb-3 text-xs text-muted">
+                            3-day free trial. You will be charged automatically after the 3-day free trial ends.
+                          </div>
+
+                          {(storiesGenerated >= 3 || profiles.length >= maxProfiles) && (
+                            <MotionButton
+                              onClick={() => startCheckout(selectedCheckoutPlan)}
+                              className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night"
+                            >
+                              Start {selectedCheckoutPlan === 'pro' ? 'Pro' : 'Pro Unlimited'} trial
                             </MotionButton>
                           )}
+                        </MotionCard>
+                      )}
+
+                      {isPaidPlan && currentPlan === 'pro' && (
+                        <MotionCard className="rounded-xl2 border border-purple2/25 bg-card p-4">
+                          <div className="mb-1 font-bold text-star">Pro plan usage</div>
+                          <div className="mb-2 text-sm text-muted">
+                            {storiesGenerated}/50 stories used this cycle · Up to 3 child profiles
+                          </div>
+                          <div className="mb-3 text-xs text-muted">
+                            Need more? Upgrade to Pro Unlimited for unlimited stories and up to 6 children.
+                          </div>
+                          <MotionButton
+                            onClick={() => startCheckout('pro_unlimited')}
+                            className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
+                          >
+                            Upgrade to Pro Unlimited
+                          </MotionButton>
                         </MotionCard>
                       )}
 
@@ -1094,10 +1498,13 @@ export default function App() {
                               <div>
                                 <div className="font-display text-2xl text-moon sm:text-3xl">{currentStory.title}</div>
                                 <div className="text-sm text-muted">
-                                  {currentStory.child_avatar} {currentStory.child_name} · {currentStory.theme} · Episode {currentStory.episode_number || 1} · {formatStoryDate(currentStory.created_at)}
+                                  {currentStory.child_avatar} {currentStory.child_name} · {currentStory.theme} · Episode{' '}
+                                  {currentStory.episode_number || 1} · {formatStoryDate(currentStory.created_at)}
                                 </div>
                                 {selectedProfile?.companion_name && (
-                                  <div className="mt-1 text-xs text-purple3">Companion: {selectedProfile.companion_name}</div>
+                                  <div className="mt-1 text-xs text-purple3">
+                                    Companion: {selectedProfile.companion_name}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -1108,14 +1515,39 @@ export default function App() {
                           </div>
 
                           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                            <MotionButton onClick={saveCurrentStory} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">💾 Save to library</MotionButton>
-                            <MotionButton onClick={() => handleGenerateStory(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">🔄 Generate another</MotionButton>
-                            <MotionButton onClick={() => handleGenerateStory(true)} className="rounded-full border border-purple2/40 px-5 py-2.5 text-sm font-bold text-purple3">⚡ Next episode</MotionButton>
-                            <MotionButton onClick={() => speakStory({ ...currentStory, id: currentStory.id || currentStory.title })} className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon">
-                              {speakingStoryId === (currentStory.id || currentStory.title) ? '🔊 Playing...' : '🔊 Voice narration'}
+                            <MotionButton
+                              onClick={saveCurrentStory}
+                              className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white"
+                            >
+                              💾 Save to library
+                            </MotionButton>
+                            <MotionButton
+                              onClick={() => handleGenerateStory(false)}
+                              className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text"
+                            >
+                              🔄 Generate another
+                            </MotionButton>
+                            <MotionButton
+                              onClick={() => handleGenerateStory(true)}
+                              className="rounded-full border border-purple2/40 px-5 py-2.5 text-sm font-bold text-purple3"
+                            >
+                              ⚡ Next episode
+                            </MotionButton>
+                            <MotionButton
+                              onClick={() => speakStory({ ...currentStory, id: currentStory.id || currentStory.title })}
+                              className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
+                            >
+                              {speakingStoryId === (currentStory.id || currentStory.title)
+                                ? '🔊 Playing...'
+                                : '🔊 Voice narration'}
                             </MotionButton>
                             {speakingStoryId === (currentStory.id || currentStory.title) && (
-                              <MotionButton onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</MotionButton>
+                              <MotionButton
+                                onClick={stopSpeaking}
+                                className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
+                              >
+                                ⏹ Stop
+                              </MotionButton>
                             )}
                           </div>
                         </motion.div>
@@ -1128,17 +1560,20 @@ export default function App() {
                   <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Story library</h2>
                     <p className="mb-6 text-sm leading-6 text-muted">
-                      {isSubscribed
-                        ? 'Saved bedtime stories live here as ongoing episodes and story series.'
-                        : 'Your saved free stories live here for easy re-reading.'}
+                      Saved bedtime stories live here as episodes, series, and growing story worlds.
                     </p>
 
                     {library.length === 0 ? (
                       <MotionCard className="rounded-xl2 border border-white/10 bg-card p-10 text-center">
                         <div className="mb-3 text-5xl">📚</div>
                         <div className="mb-2 font-bold text-star">Your library is empty</div>
-                        <div className="mb-4 text-sm text-muted">Generate a story and save it — it will appear here for your child to revisit.</div>
-                        <MotionButton onClick={() => setSelectedTab('generate')} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white">
+                        <div className="mb-4 text-sm text-muted">
+                          Generate a story and save it — it will appear here for your child to revisit.
+                        </div>
+                        <MotionButton
+                          onClick={() => setSelectedTab('generate')}
+                          className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
+                        >
                           Generate first story →
                         </MotionButton>
                       </MotionCard>
@@ -1147,7 +1582,9 @@ export default function App() {
                         {groupedLibrary.map((series, seriesIndex) => {
                           const first = series[0];
                           const seriesProfile = profiles.find((p) => p.id === first?.child_id);
-                          const seriesTitle = seriesProfile ? getSeriesLabel(seriesProfile) : `${first?.child_name || 'Story'} Adventures`;
+                          const seriesTitle = seriesProfile
+                            ? getSeriesLabel(seriesProfile)
+                            : `${first?.child_name || 'Story'} Adventures`;
 
                           return (
                             <MotionCard
@@ -1171,7 +1608,8 @@ export default function App() {
                                 <div>
                                   <div className="font-display text-xl text-moon sm:text-2xl">{seriesTitle}</div>
                                   <div className="text-sm text-muted">
-                                    {series.length} episode{series.length === 1 ? '' : 's'} · {first?.child_avatar} {first?.child_name}
+                                    {series.length} episode{series.length === 1 ? '' : 's'} · {first?.child_avatar}{' '}
+                                    {first?.child_name}
                                   </div>
                                 </div>
                               </div>
@@ -1206,25 +1644,15 @@ export default function App() {
                                         Episode {story.episode_number || 1}
                                       </div>
                                       <div className="mb-1 font-bold text-star">{story.title}</div>
-                                      <div className="mb-3 text-sm text-purple3">{story.child_avatar} {story.child_name}</div>
+                                      <div className="mb-3 text-sm text-purple3">
+                                        {story.child_avatar} {story.child_name}
+                                      </div>
                                       <div className="mb-4 line-clamp-3 text-sm leading-6 text-muted">{story.body}</div>
                                       <div className="text-xs text-muted">{formatStoryDate(story.created_at)}</div>
                                     </motion.button>
                                   );
                                 })}
                               </div>
-
-                              {!isSubscribed && (
-                                <div className="mt-5 rounded-xl border border-moon/20 bg-moon/5 p-4">
-                                  <div className="mb-1 font-bold text-moon">Upgrade to Premium</div>
-                                  <div className="mb-3 text-sm text-muted">
-                                    Unlock unlimited stories, auto next episodes, voice narration, continuity, and up to 3 child profiles.
-                                  </div>
-                                  <MotionButton onClick={startCheckout} className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night">
-                                    Upgrade — £5/mo
-                                  </MotionButton>
-                                </div>
-                              )}
                             </MotionCard>
                           );
                         })}
@@ -1236,24 +1664,52 @@ export default function App() {
                 {selectedTab === 'profiles' && (
                   <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                     <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">Children</h2>
-                    <p className="mb-6 text-sm leading-6 text-muted">Manage child profiles, avatars, ages, interests, and recurring companions.</p>
+                    <p className="mb-6 text-sm leading-6 text-muted">
+                      Manage child profiles, avatars, ages, interests, siblings, and recurring companions.
+                    </p>
 
                     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                       {profiles.map((profile, index) => (
-                        <MotionCard key={profile.id} delay={index * 0.04} className="relative rounded-xl2 border border-white/10 bg-card p-5 text-center">
-                          <MotionButton onClick={() => removeProfile(profile.id)} className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-coral/15 text-xs text-coral">
+                        <MotionCard
+                          key={profile.id}
+                          delay={index * 0.04}
+                          className="relative rounded-xl2 border border-white/10 bg-card p-5 text-center"
+                        >
+                          <MotionButton
+                            onClick={() => removeProfile(profile.id)}
+                            className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-coral/15 text-xs text-coral"
+                          >
                             ✕
                           </MotionButton>
                           <div className="mb-2 text-5xl">{profile.avatar}</div>
                           <div className="text-base font-extrabold text-star">{profile.name}</div>
                           <div className="text-xs text-muted">{profile.age} years old</div>
-                          {profile.interests && <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>}
+                          {profile.interests && (
+                            <div className="mt-1 text-xs italic text-purple3">Loves: {profile.interests}</div>
+                          )}
+
+                          {profile.sibling_name && (
+                            <div className="mt-3 rounded-lg border border-white/10 bg-night3/60 p-3 text-left">
+                              <div className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-purple3">
+                                Sibling
+                              </div>
+                              <div className="text-sm font-bold text-star">{profile.sibling_name}</div>
+                              <div className="text-xs text-muted">
+                                {profile.sibling_relationship || 'Sibling'}
+                                {profile.sibling_age ? ` · ${profile.sibling_age} years old` : ''}
+                              </div>
+                            </div>
+                          )}
+
                           {profile.companion_name && (
                             <div className="mt-3 rounded-lg border border-white/10 bg-night3/60 p-3 text-left">
-                              <div className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-moon">Companion</div>
+                              <div className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-moon">
+                                Companion
+                              </div>
                               <div className="text-sm font-bold text-star">{profile.companion_name}</div>
                               <div className="text-xs text-muted">
-                                {profile.companion_type || 'friend'}{profile.companion_trait ? ` · ${profile.companion_trait}` : ''}
+                                {profile.companion_type || 'friend'}
+                                {profile.companion_trait ? ` · ${profile.companion_trait}` : ''}
                               </div>
                             </div>
                           )}
@@ -1261,7 +1717,10 @@ export default function App() {
                       ))}
 
                       {profiles.length < maxProfiles && (
-                        <MotionButton onClick={() => setProfileModalOpen(true)} className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text">
+                        <MotionButton
+                          onClick={() => setProfileModalOpen(true)}
+                          className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text"
+                        >
                           <div className="mb-2 text-4xl">➕</div>
                           <div className="font-bold">Add child</div>
                         </MotionButton>
@@ -1285,32 +1744,72 @@ export default function App() {
                             <StatBox label="Saved" value={library.length} />
                             <StatBox label="Children" value={profiles.length} />
                           </div>
+
                           <InfoRow label="Name" value={userRecord?.name || user?.user_metadata?.name || '—'} />
                           <InfoRow label="Email" value={user?.email || '—'} />
                           <InfoRow label="Member since" value={accountSince} />
+
                           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                            <MotionButton onClick={signOut} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Sign out</MotionButton>
-                            {isSubscribed && <MotionButton onClick={openBillingPortal} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Manage billing</MotionButton>}
+                            <MotionButton
+                              onClick={signOut}
+                              className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text"
+                            >
+                              Sign out
+                            </MotionButton>
+                            {isPaidPlan && (
+                              <MotionButton
+                                onClick={openBillingPortal}
+                                className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white"
+                              >
+                                Manage billing
+                              </MotionButton>
+                            )}
                           </div>
 
                           <div className="mt-8 border-t border-coral/15 pt-6">
                             <div className="mb-2 text-sm font-extrabold text-coral">Danger zone</div>
-                            <div className="mb-4 text-sm leading-6 text-muted">Permanently deletes your account, all child profiles, and all saved stories. This cannot be undone.</div>
-                            <MotionButton onClick={handleDeleteAccount} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete my account</MotionButton>
+                            <div className="mb-4 text-sm leading-6 text-muted">
+                              Permanently deletes your account, all child profiles, and all saved stories. This cannot be undone.
+                            </div>
+                            <MotionButton
+                              onClick={handleDeleteAccount}
+                              className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
+                            >
+                              Delete my account
+                            </MotionButton>
                           </div>
                         </MotionCard>
 
                         <MotionCard className="rounded-xl2 border border-white/10 bg-card p-5 sm:p-6">
-                          <div className="mb-1 text-sm font-extrabold uppercase tracking-[0.06em] text-purple3">Current plan</div>
-                          <div className="mb-2 font-display text-2xl text-star">{isSubscribed ? 'Premium Plan' : 'Free Plan'}</div>
-                          <div className="mb-4 text-4xl font-extrabold text-moon">{isSubscribed ? '£5' : '£0'}<span className="text-sm font-normal text-muted">/month</span></div>
+                          <div className="mb-1 text-sm font-extrabold uppercase tracking-[0.06em] text-purple3">
+                            Current plan
+                          </div>
+                          <div className="mb-2 font-display text-2xl text-star">
+                            {currentPlan === 'pro_unlimited'
+                              ? 'Pro Unlimited'
+                              : currentPlan === 'pro'
+                              ? 'Pro'
+                              : 'Free Plan'}
+                          </div>
+                          <div className="mb-4 text-4xl font-extrabold text-moon">
+                            {planMeta.displayPrice}
+                            <span className="text-sm font-normal text-muted">/month</span>
+                          </div>
+
                           <div className="space-y-2 text-sm text-text">
-                            {isSubscribed ? (
+                            {currentPlan === 'pro_unlimited' ? (
                               <>
-                                <div>✓ Unlimited stories every night</div>
+                                <div>✓ Unlimited stories</div>
+                                <div>✓ Up to 6 child profiles</div>
+                                <div>✓ Story series library with cover images</div>
+                                <div>✓ Auto next episode + voice narration</div>
+                              </>
+                            ) : currentPlan === 'pro' ? (
+                              <>
+                                <div>✓ 50 stories per month</div>
                                 <div>✓ Up to 3 child profiles</div>
                                 <div>✓ Story series library with cover images</div>
-                                <div>✓ Auto next episode + narration</div>
+                                <div>✓ Auto next episode + voice narration</div>
                               </>
                             ) : (
                               <>
@@ -1321,9 +1820,62 @@ export default function App() {
                               </>
                             )}
                           </div>
-                          <MotionButton onClick={isSubscribed ? openBillingPortal : startCheckout} className={classNames('mt-6 w-full rounded-full px-5 py-3 text-sm font-bold', isSubscribed ? 'bg-white/10 text-text' : 'bg-gradient-to-br from-moon2 to-moon text-night')}>
-                            {isSubscribed ? 'Manage subscription' : '✨ Upgrade to Premium — £5/month'}
-                          </MotionButton>
+
+                          {!isPaidPlan ? (
+                            <>
+                              <div className="mt-5 grid gap-3">
+                                <button
+                                  onClick={() => setSelectedCheckoutPlan('pro')}
+                                  className={classNames(
+                                    'rounded-xl border px-4 py-3 text-left transition',
+                                    selectedCheckoutPlan === 'pro'
+                                      ? 'border-moon bg-moon/10 text-moon'
+                                      : 'border-white/10 bg-night3 text-text'
+                                  )}
+                                >
+                                  <div className="font-bold">Pro · $8.99/mo</div>
+                                  <div className="text-xs text-muted">50 stories · 3 children · 3-day trial</div>
+                                </button>
+                                <button
+                                  onClick={() => setSelectedCheckoutPlan('pro_unlimited')}
+                                  className={classNames(
+                                    'rounded-xl border px-4 py-3 text-left transition',
+                                    selectedCheckoutPlan === 'pro_unlimited'
+                                      ? 'border-moon bg-moon/10 text-moon'
+                                      : 'border-white/10 bg-night3 text-text'
+                                  )}
+                                >
+                                  <div className="font-bold">Pro Unlimited · $14.99/mo</div>
+                                  <div className="text-xs text-muted">Unlimited stories · 6 children · 3-day trial</div>
+                                </button>
+                              </div>
+
+                              <div className="mt-4 text-xs text-muted">
+                                3-day free trial. You will be charged automatically after the 3-day free trial ends.
+                              </div>
+
+                              <MotionButton
+                                onClick={() => startCheckout(selectedCheckoutPlan)}
+                                className="mt-6 w-full rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-bold text-night"
+                              >
+                                Start {selectedCheckoutPlan === 'pro' ? 'Pro' : 'Pro Unlimited'} trial
+                              </MotionButton>
+                            </>
+                          ) : currentPlan === 'pro' ? (
+                            <MotionButton
+                              onClick={() => startCheckout('pro_unlimited')}
+                              className="mt-6 w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
+                            >
+                              Upgrade to Pro Unlimited
+                            </MotionButton>
+                          ) : (
+                            <MotionButton
+                              onClick={openBillingPortal}
+                              className="mt-6 w-full rounded-full bg-white/10 px-5 py-3 text-sm font-bold text-text"
+                            >
+                              Manage subscription
+                            </MotionButton>
+                          )}
                         </MotionCard>
                       </div>
                     )}
@@ -1350,11 +1902,15 @@ export default function App() {
               >
                 <div className="mb-4 flex items-center justify-between">
                   <div className="font-display text-2xl text-moon">Add child profile</div>
-                  <MotionButton onClick={() => setProfileModalOpen(false)} className="text-muted">✕</MotionButton>
+                  <MotionButton onClick={() => setProfileModalOpen(false)} className="text-muted">
+                    ✕
+                  </MotionButton>
                 </div>
 
                 <div className="mb-4">
-                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Name</label>
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                    Name
+                  </label>
                   <input
                     value={profileForm.name}
                     onChange={(e) => {
@@ -1369,44 +1925,158 @@ export default function App() {
 
                 <div className="mb-4 grid gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Age</label>
-                    <select value={profileForm.age} onChange={(e) => setProfileForm((prev) => ({ ...prev, age: Number(e.target.value) }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2">
-                      {Array.from({ length: 10 }, (_, index) => index + 3).map((age) => <option key={age} value={age}>{age}</option>)}
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                      Age
+                    </label>
+                    <select
+                      value={profileForm.age}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, age: Number(e.target.value) }))
+                      }
+                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                    >
+                      {Array.from({ length: 10 }, (_, index) => index + 3).map((age) => (
+                        <option key={age} value={age}>
+                          {age}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Interests</label>
-                    <input value={profileForm.interests} onChange={(e) => setProfileForm((prev) => ({ ...prev, interests: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragons, stars, foxes" />
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                      Interests
+                    </label>
+                    <input
+                      value={profileForm.interests}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, interests: e.target.value }))
+                      }
+                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                      placeholder="dragons, stars, foxes"
+                    />
                   </div>
                 </div>
 
                 <div className="mb-4 rounded-xl2 border border-white/10 bg-night3/40 p-4">
-                  <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-moon">Recurring companion / sidekick</div>
+                  <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                    Optional sibling in stories
+                  </div>
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div>
-                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion name</label>
-                      <input value={profileForm.companion_name} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="Zara" />
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Sibling name
+                      </label>
+                      <input
+                        value={profileForm.sibling_name}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, sibling_name: e.target.value }))
+                        }
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="Leo"
+                      />
                     </div>
 
                     <div>
-                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion type</label>
-                      <input value={profileForm.companion_type} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="dragon, robot, fairy" />
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Relationship
+                      </label>
+                      <input
+                        value={profileForm.sibling_relationship}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            sibling_relationship: e.target.value,
+                          }))
+                        }
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="little brother"
+                      />
                     </div>
                   </div>
 
                   <div className="mt-4">
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Companion personality</label>
-                    <input value={profileForm.companion_trait} onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))} className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2" placeholder="brave but easily startled" />
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                      Sibling age
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={profileForm.sibling_age}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, sibling_age: e.target.value }))
+                      }
+                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                      placeholder="5"
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-4 rounded-xl2 border border-white/10 bg-night3/40 p-4">
+                  <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-moon">
+                    Recurring companion / sidekick
+                  </div>
+
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Companion name
+                      </label>
+                      <input
+                        value={profileForm.companion_name}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))
+                        }
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="Zara"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Companion type
+                      </label>
+                      <input
+                        value={profileForm.companion_type}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))
+                        }
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="dragon, robot, fairy"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                      Companion personality
+                    </label>
+                    <input
+                      value={profileForm.companion_trait}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))
+                      }
+                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                      placeholder="brave but easily startled"
+                    />
                   </div>
                 </div>
 
                 <div className="mb-4">
-                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">Avatar</label>
+                  <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                    Avatar
+                  </label>
                   <div className="grid grid-cols-5 gap-3">
                     {AVATARS.map((avatar) => (
-                      <MotionButton key={avatar} onClick={() => setProfileForm((prev) => ({ ...prev, avatar }))} className={classNames('rounded-sm2 border px-2 py-3 text-2xl transition', profileForm.avatar === avatar ? 'border-moon bg-moon/10' : 'border-white/10 bg-night3')}>
+                      <MotionButton
+                        key={avatar}
+                        onClick={() => setProfileForm((prev) => ({ ...prev, avatar }))}
+                        className={classNames(
+                          'rounded-sm2 border px-2 py-3 text-2xl transition',
+                          profileForm.avatar === avatar ? 'border-moon bg-moon/10' : 'border-white/10 bg-night3'
+                        )}
+                      >
                         {avatar}
                       </MotionButton>
                     ))}
@@ -1430,8 +2100,18 @@ export default function App() {
                 </div>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                  <MotionButton onClick={() => setProfileModalOpen(false)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Cancel</MotionButton>
-                  <MotionButton onClick={saveProfile} className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white">Add child ✓</MotionButton>
+                  <MotionButton
+                    onClick={() => setProfileModalOpen(false)}
+                    className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text"
+                  >
+                    Cancel
+                  </MotionButton>
+                  <MotionButton
+                    onClick={saveProfile}
+                    className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white"
+                  >
+                    Add child ✓
+                  </MotionButton>
                 </div>
               </motion.div>
             </motion.div>
@@ -1467,14 +2147,21 @@ export default function App() {
                     )}
 
                     <div>
-                      <div className="font-display text-2xl text-moon sm:text-3xl">{library[storyModalIndex].title}</div>
+                      <div className="font-display text-2xl text-moon sm:text-3xl">
+                        {library[storyModalIndex].title}
+                      </div>
                       <div className="text-sm text-muted">
-                        {library[storyModalIndex].child_avatar} {library[storyModalIndex].child_name} · {library[storyModalIndex].theme} · Episode {library[storyModalIndex].episode_number || 1} · {formatStoryDate(library[storyModalIndex].created_at)}
+                        {library[storyModalIndex].child_avatar} {library[storyModalIndex].child_name} ·{' '}
+                        {library[storyModalIndex].theme} · Episode{' '}
+                        {library[storyModalIndex].episode_number || 1} ·{' '}
+                        {formatStoryDate(library[storyModalIndex].created_at)}
                       </div>
                     </div>
                   </div>
 
-                  <MotionButton onClick={() => setStoryModalIndex(null)} className="text-muted">✕</MotionButton>
+                  <MotionButton onClick={() => setStoryModalIndex(null)} className="text-muted">
+                    ✕
+                  </MotionButton>
                 </div>
 
                 <div className="space-y-5">
@@ -1482,75 +2169,37 @@ export default function App() {
                 </div>
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
-                  <MotionButton onClick={() => speakStory(library[storyModalIndex])} className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon">
+                  <MotionButton
+                    onClick={() => speakStory(library[storyModalIndex])}
+                    className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
+                  >
                     {speakingStoryId === library[storyModalIndex].id ? '🔊 Playing...' : '🔊 Voice narration'}
                   </MotionButton>
 
                   {speakingStoryId === library[storyModalIndex].id && (
-                    <MotionButton onClick={stopSpeaking} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">⏹ Stop</MotionButton>
+                    <MotionButton
+                      onClick={stopSpeaking}
+                      className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
+                    >
+                      ⏹ Stop
+                    </MotionButton>
                   )}
 
-                  <MotionButton onClick={() => setStoryModalIndex(null)} className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text">Close</MotionButton>
-                  <MotionButton onClick={() => removeStory(storyModalIndex)} className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral">Delete</MotionButton>
+                  <MotionButton
+                    onClick={() => removeStory(storyModalIndex)}
+                    className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
+                  >
+                    Delete story
+                  </MotionButton>
                 </div>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
-          <FloatingTranslator />
+
+        <FloatingTranslator />
         <Toast toast={toast} />
       </div>
-    </div>
-  );
-}
-
-function OptionGroup({ title, options, value, onChange }) {
-  return (
-    <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
-      <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">{title}</div>
-      <div className="flex flex-wrap gap-3">
-        {options.map((option, index) => {
-          const active = option === value;
-          return (
-            <motion.button
-              key={option}
-              onClick={() => onChange(option)}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.02 }}
-              whileHover={{ y: -2, scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className={classNames(
-                'rounded-full border px-4 py-2 text-sm font-bold capitalize transition',
-                active ? 'border-moon bg-moon/10 text-moon' : 'border-white/10 bg-card text-text hover:border-purple2'
-              )}
-            >
-              {option}
-            </motion.button>
-          );
-        })}
-      </div>
-    </MotionCard>
-  );
-}
-
-function StatBox({ label, value }) {
-  return (
-    <motion.div
-      whileHover={{ y: -3, scale: 1.01 }}
-      className="rounded-sm2 border border-white/5 bg-night3/60 p-4 text-center"
-    >
-      <div className="text-3xl font-extrabold text-moon">{value}</div>
-      <div className="mt-1 text-xs text-muted">{label}</div>
-    </motion.div>
-  );
-}
-
-function InfoRow({ label, value }) {
-  return (
-    <div className="flex items-center justify-between border-b border-white/5 py-3 text-sm last:border-b-0">
-      <div className="text-muted">{label}</div>
-      <div className="max-w-[60%] text-right font-bold text-text">{value}</div>
     </div>
   );
 }
