@@ -258,7 +258,7 @@ Tonight's word: [one word in ${language}] ([phonetic pronunciation])
 to the child, not defined clinically].`;
 }
 
-function parseStory(raw, profile, theme, moral, previousStories = []) {
+function parseStory(raw, profile, theme, moral, previousStories = [], language = 'English') {
   const cleaned = raw.trim();
   const labeledTitleMatch = cleaned.match(/^TITLE:\s*(.+)$/im);
 
@@ -291,6 +291,7 @@ function parseStory(raw, profile, theme, moral, previousStories = []) {
     created_at: new Date().toISOString(),
     series_id: seriesId,
     episode_number: nextEpisode,
+    story_language: language,
     cover_image: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(coverSeed)}`,
   };
 }
@@ -455,7 +456,9 @@ export default function App() {
   const [selectedLength, setSelectedLength] = useState(LENGTHS[0]);
   const [selectedMoral, setSelectedMoral] = useState('');
   const [wish, setWish] = useState('');
-  const [selectedLanguage, setSelectedLanguage] = useState(() => localStorage.getItem('storynest_selected_language') || 'English');
+  const [selectedLanguage, setSelectedLanguage] = useState(
+    () => localStorage.getItem('storynest_selected_language') || 'English'
+  );
   const [currentStory, setCurrentStory] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [storyModalIndex, setStoryModalIndex] = useState(null);
@@ -478,7 +481,8 @@ export default function App() {
   const isPaidPlan = planMeta.isPaid;
   const maxProfiles = planMeta.children;
   const maxStories = planMeta.stories;
-  const selectedProfile = profiles.find((item) => item.id === selectedProfileId) || profiles[0] || null;
+  const selectedProfile =
+    profiles.find((item) => item.id === selectedProfileId) || profiles[0] || null;
 
   const selectedProfileStories = useMemo(
     () => (selectedProfile ? library.filter((item) => item.child_id === selectedProfile.id) : []),
@@ -511,11 +515,85 @@ export default function App() {
   function stopSpeaking() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
     }
     setSpeakingStoryId(null);
   }
 
-  function speakStory(story) {
+  function getSpeechLang(language) {
+    const map = {
+      English: 'en-US',
+      Spanish: 'es-ES',
+      French: 'fr-FR',
+      German: 'de-DE',
+      Swahili: 'sw-KE',
+      Italian: 'it-IT',
+      Portuguese: 'pt-PT',
+      Japanese: 'ja-JP',
+    };
+
+    return map[language] || 'en-US';
+  }
+
+  function getAvailableVoices() {
+    if (!('speechSynthesis' in window)) return [];
+    return window.speechSynthesis.getVoices() || [];
+  }
+
+  function pickBestVoice(language) {
+    const targetLang = getSpeechLang(language).toLowerCase();
+    const baseLang = targetLang.split('-')[0];
+    const voices = getAvailableVoices();
+
+    if (!voices.length) return null;
+
+    const exact = voices.find((voice) => voice.lang?.toLowerCase() === targetLang);
+    if (exact) return exact;
+
+    const partial = voices.find((voice) =>
+      voice.lang?.toLowerCase().startsWith(baseLang)
+    );
+    if (partial) return partial;
+
+    const englishFallback = voices.find((voice) =>
+      voice.lang?.toLowerCase().startsWith('en')
+    );
+    return englishFallback || voices[0] || null;
+  }
+
+  function waitForVoices(timeout = 1500) {
+    return new Promise((resolve) => {
+      if (!('speechSynthesis' in window)) {
+        resolve([]);
+        return;
+      }
+
+      const immediate = getAvailableVoices();
+      if (immediate.length) {
+        resolve(immediate);
+        return;
+      }
+
+      let done = false;
+
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve(getAvailableVoices());
+      };
+
+      const timer = setTimeout(finish, timeout);
+
+      window.speechSynthesis.onvoiceschanged = () => {
+        clearTimeout(timer);
+        finish();
+        window.speechSynthesis.onvoiceschanged = null;
+      };
+    });
+  }
+
+  async function speakStory(story, language = selectedLanguage) {
     if (!isPaidPlan) {
       showToast('Voice narration is available on paid plans.', '#ff6b6b');
       return;
@@ -526,19 +604,56 @@ export default function App() {
       return;
     }
 
-    stopSpeaking();
+    const storyId = story.id || story.title;
+    const narrationLanguage = story.story_language || language || 'English';
 
-    const utterance = new SpeechSynthesisUtterance(`${story.title}. ${story.body}`);
-    utterance.rate = 0.92;
-    utterance.pitch = 1;
-    utterance.onend = () => setSpeakingStoryId(null);
-    utterance.onerror = () => {
+    try {
+      stopSpeaking();
+      await waitForVoices();
+
+      const utterance = new SpeechSynthesisUtterance(`${story.title}. ${story.body}`);
+      utterance.lang = getSpeechLang(narrationLanguage);
+      utterance.rate = 0.92;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      const bestVoice = pickBestVoice(narrationLanguage);
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+        utterance.lang = bestVoice.lang || utterance.lang;
+      }
+
+      utterance.onstart = () => {
+        setSpeakingStoryId(storyId);
+      };
+
+      utterance.onend = () => {
+        setSpeakingStoryId(null);
+      };
+
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+        setSpeakingStoryId(null);
+        showToast('Could not play narration', '#ff6b6b');
+      };
+
+      setSpeakingStoryId(storyId);
+
+      setTimeout(() => {
+        try {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.speak(utterance);
+        } catch (error) {
+          console.error('Speech playback failed:', error);
+          setSpeakingStoryId(null);
+          showToast('Could not play narration', '#ff6b6b');
+        }
+      }, 120);
+    } catch (error) {
+      console.error('Narration setup failed:', error);
       setSpeakingStoryId(null);
       showToast('Could not play narration', '#ff6b6b');
-    };
-
-    setSpeakingStoryId(story.id || story.title);
-    window.speechSynthesis.speak(utterance);
+    }
   }
 
   useEffect(() => {
@@ -580,12 +695,19 @@ export default function App() {
       setLoadingAccount(true);
       setScreen('dashboard');
 
-      const [{ data: userData, error: userErr }, { data: children, error: childrenErr }, { data: stories, error: storiesErr }] =
-        await Promise.all([
-          supabase.from('users').select('*').eq('id', user.id).single(),
-          supabase.from('children').select('*').eq('user_id', user.id).order('created_at'),
-          supabase.from('stories').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        ]);
+      const [
+        { data: userData, error: userErr },
+        { data: children, error: childrenErr },
+        { data: stories, error: storiesErr },
+      ] = await Promise.all([
+        supabase.from('users').select('*').eq('id', user.id).single(),
+        supabase.from('children').select('*').eq('user_id', user.id).order('created_at'),
+        supabase
+          .from('stories')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+      ]);
 
       if (userErr) console.error(userErr);
       if (childrenErr) console.error(childrenErr);
@@ -638,7 +760,9 @@ export default function App() {
     if (!email || !password) return setAuthError('Please fill in all fields');
     if (!email.includes('@')) return setAuthError('Please enter a valid email');
     if (password.length < 6) return setAuthError('Password must be at least 6 characters');
-    if (authMode === 'signup' && !parentConsent) return setAuthError('Please confirm you are a parent or guardian');
+    if (authMode === 'signup' && !parentConsent) {
+      return setAuthError('Please confirm you are a parent or guardian');
+    }
 
     setAuthError('');
     const payload =
@@ -765,12 +889,23 @@ export default function App() {
       );
 
       const data = await generateStory(token, prompt);
-      const story = parseStory(data.text, selectedProfile, selectedTheme, selectedMoral, previousStories);
+      const story = parseStory(
+        data.text,
+        selectedProfile,
+        selectedTheme,
+        selectedMoral,
+        previousStories,
+        selectedLanguage
+      );
 
       setCurrentStory(story);
 
       const nextCount = storiesGenerated + 1;
-      const { error } = await supabase.from('users').update({ stories_generated: nextCount }).eq('id', user.id);
+      const { error } = await supabase
+        .from('users')
+        .update({ stories_generated: nextCount })
+        .eq('id', user.id);
+
       if (!error) {
         setUserRecord((prev) => (prev ? { ...prev, stories_generated: nextCount } : prev));
       }
@@ -812,6 +947,7 @@ export default function App() {
         moral: currentStory.moral || selectedMoral || null,
         series_id: currentStory.series_id || currentStory.child_id,
         episode_number: currentStory.episode_number || episodeCount + 1,
+        story_language: currentStory.story_language || selectedLanguage,
         cover_image:
           currentStory.cover_image ||
           `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentStory.title)}`,
@@ -1534,7 +1670,12 @@ export default function App() {
                               ⚡ Next episode
                             </MotionButton>
                             <MotionButton
-                              onClick={() => speakStory({ ...currentStory, id: currentStory.id || currentStory.title })}
+                              onClick={() =>
+                                speakStory(
+                                  { ...currentStory, id: currentStory.id || currentStory.title },
+                                  currentStory.story_language || selectedLanguage
+                                )
+                              }
                               className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
                             >
                               {speakingStoryId === (currentStory.id || currentStory.title)
@@ -1930,9 +2071,7 @@ export default function App() {
                     </label>
                     <select
                       value={profileForm.age}
-                      onChange={(e) =>
-                        setProfileForm((prev) => ({ ...prev, age: Number(e.target.value) }))
-                      }
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, age: Number(e.target.value) }))}
                       className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                     >
                       {Array.from({ length: 10 }, (_, index) => index + 3).map((age) => (
@@ -1949,9 +2088,7 @@ export default function App() {
                     </label>
                     <input
                       value={profileForm.interests}
-                      onChange={(e) =>
-                        setProfileForm((prev) => ({ ...prev, interests: e.target.value }))
-                      }
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, interests: e.target.value }))}
                       className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                       placeholder="dragons, stars, foxes"
                     />
@@ -1970,9 +2107,7 @@ export default function App() {
                       </label>
                       <input
                         value={profileForm.sibling_name}
-                        onChange={(e) =>
-                          setProfileForm((prev) => ({ ...prev, sibling_name: e.target.value }))
-                        }
+                        onChange={(e) => setProfileForm((prev) => ({ ...prev, sibling_name: e.target.value }))}
                         className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                         placeholder="Leo"
                       />
@@ -1985,10 +2120,7 @@ export default function App() {
                       <input
                         value={profileForm.sibling_relationship}
                         onChange={(e) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            sibling_relationship: e.target.value,
-                          }))
+                          setProfileForm((prev) => ({ ...prev, sibling_relationship: e.target.value }))
                         }
                         className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                         placeholder="little brother"
@@ -2004,9 +2136,7 @@ export default function App() {
                       type="number"
                       min="1"
                       value={profileForm.sibling_age}
-                      onChange={(e) =>
-                        setProfileForm((prev) => ({ ...prev, sibling_age: e.target.value }))
-                      }
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, sibling_age: e.target.value }))}
                       className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                       placeholder="5"
                     />
@@ -2025,9 +2155,7 @@ export default function App() {
                       </label>
                       <input
                         value={profileForm.companion_name}
-                        onChange={(e) =>
-                          setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))
-                        }
+                        onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_name: e.target.value }))}
                         className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                         placeholder="Zara"
                       />
@@ -2039,9 +2167,7 @@ export default function App() {
                       </label>
                       <input
                         value={profileForm.companion_type}
-                        onChange={(e) =>
-                          setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))
-                        }
+                        onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_type: e.target.value }))}
                         className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                         placeholder="dragon, robot, fairy"
                       />
@@ -2054,9 +2180,7 @@ export default function App() {
                     </label>
                     <input
                       value={profileForm.companion_trait}
-                      onChange={(e) =>
-                        setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))
-                      }
+                      onChange={(e) => setProfileForm((prev) => ({ ...prev, companion_trait: e.target.value }))}
                       className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
                       placeholder="brave but easily startled"
                     />
@@ -2170,7 +2294,12 @@ export default function App() {
 
                 <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
                   <MotionButton
-                    onClick={() => speakStory(library[storyModalIndex])}
+                    onClick={() =>
+                      speakStory(
+                        library[storyModalIndex],
+                        library[storyModalIndex].story_language || selectedLanguage
+                      )
+                    }
                     className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
                   >
                     {speakingStoryId === library[storyModalIndex].id ? '🔊 Playing...' : '🔊 Voice narration'}
