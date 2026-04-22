@@ -16,7 +16,7 @@ import FAQs from './components/FAQs';
 import Stats from './components/Stats';
 import Footer from './components/Footer';
 import Review from './components/Reviews';
-import FloatingTranslator from './components/FloatingTranslator';
+
 import Privacy from './components/Privacy';
 import ToS from './components/ToS';
 
@@ -45,6 +45,14 @@ const LANGUAGE_OPTIONS = [
   'Italian',
   'Portuguese',
   'Japanese',
+  'Russian',
+  'Arabic',
+  'Chinese (Simplified)',
+  'Hindi',
+  'Korean',
+  'Turkish',
+  'Dutch'
+
 ];
 
 const PLAN_META = {
@@ -2326,7 +2334,7 @@ export default function App() {
           )}
         </AnimatePresence>
 
-        <FloatingTranslator />
+        
         <Toast toast={toast} />
       </div>
     </div>
