@@ -87,7 +87,7 @@ const VOICE_ROLE_OPTIONS = [
   { value: 'father', label: 'Father voice' },
 ];
 
-const PLAN_META = {const PLAN_META = {
+const PLAN_META = {
   free: {
     id: 'free',
     label: 'Free',
@@ -137,7 +137,7 @@ const features = [
   ],
 ];
 
-function classNamesfunction classNames(...parts) {
+function classNames(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
@@ -660,7 +660,7 @@ export default function App() {
     return map[language] || 'en-US';
   }
 
-  function getAvailableVoices  function getAvailableVoices() {
+  function getAvailableVoices() {
     if (!('speechSynthesis' in window)) return [];
     return window.speechSynthesis.getVoices() || [];
   }
@@ -693,7 +693,7 @@ export default function App() {
     return englishFallback || voices[0] || null;
   }
 
-  function waitForVoices  function waitForVoices(timeout = 1500) {
+  function waitForVoices(timeout = 1500) {
     return new Promise((resolve) => {
       if (!('speechSynthesis' in window)) {
         resolve([]);
@@ -1652,6 +1652,7 @@ export default function App() {
                               <div className="mb-2 text-4xl">➕</div>
                               <div className="font-bold">Add child</div>
                             </MotionButton>
+                          )}
                         </div>
                       </div>
 
