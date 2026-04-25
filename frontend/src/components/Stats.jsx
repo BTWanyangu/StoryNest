@@ -5,14 +5,14 @@ import { Star, BookOpen, Shield, Brain } from "lucide-react";
 const stats = [
   {
     id: 1,
-    value: 300,
+    value: 5000,
     suffix: "+",
     label: "Happy Readers",
     icon: Star,
   },
   {
     id: 2,
-    value: 5000,
+    value: 30000,
     suffix: "+",
     label: "Stories Created",
     icon: BookOpen,
