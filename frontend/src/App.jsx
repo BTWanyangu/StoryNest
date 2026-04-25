@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import { loadStripe } from '@stripe/stripe-js';
+import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe-js';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AVATARS, LENGTHS, MORALS, STORY_ICONS, THEMES } from './constants';
+import { AVATARS, LENGTHS, MORALS, STORY_ICONS } from './constants';
 import { supabase } from './lib/supabase';
 import logo from './assets/logo.png';
 import { Sparkles, BookOpen, Users, Zap } from 'lucide-react';
@@ -19,6 +21,8 @@ import Review from './components/Reviews';
 
 import Privacy from './components/Privacy';
 import ToS from './components/ToS';
+
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
 const initialForm = { email: '', password: '', name: '', parentConsent: false };
 
@@ -41,21 +45,49 @@ const LANGUAGE_OPTIONS = [
   'Spanish',
   'French',
   'German',
-  'Swahili',
-  'Italian',
-  'Portuguese',
-  'Japanese',
-  'Russian',
+  'Mandarin (China)',
+  'Tagalog (Filipino)',
+  'Vietnamese',
   'Arabic',
-  'Chinese (Simplified)',
-  'Hindi',
   'Korean',
+  'Russian',
+  'Portuguese',
+  'Hindi',
+  'Haitian Creole',
+  'Italian',
+  'Punjabi',
+  'Japanese',
+  'Persian / Farsi',
+  'Polish',
   'Turkish',
-  'Dutch'
-
+  'Dutch',
 ];
 
-const PLAN_META = {
+const THEME_OPTIONS = [
+  'Dragons & mythical creatures',
+  'Space journeys',
+  'Magical adventure',
+  'Superheroes & Special powers',
+  'Friendship & belonging',
+  'Animals & talking animals',
+  'Underwater & ocean adventures',
+  'Dinosaurs',
+  'Fairy tales',
+  'Pirates treasure hunts',
+  'Science & inventions',
+  'Time travel & history',
+  'Robots & technology',
+  'Sports & winning through team effort',
+  'Nature & environmental adventures',
+  'Dreamworld',
+];
+
+const VOICE_ROLE_OPTIONS = [
+  { value: 'mother', label: 'Mother voice' },
+  { value: 'father', label: 'Father voice' },
+];
+
+const PLAN_META = {const PLAN_META = {
   free: {
     id: 'free',
     label: 'Free',
@@ -83,13 +115,29 @@ const PLAN_META = {
 };
 
 const features = [
-  [Sparkles, 'Personalised', 'Your child is the hero every time'],
-  [BookOpen, 'Story series', 'Save stories as episodes with cover art'],
-  [Users, 'Multi-child ready', 'Pro supports 3 children, Pro Unlimited supports 6'],
-  [Zap, 'Fast generation', 'New bedtime stories in 10–20 seconds'],
+  [
+    Sparkles,
+    'Personalised',
+    'Hearing their own name in every story sparks excitement and turns each moment into a memory you’ll never forget. Every child deserves a story that was made for no one else but them.',
+  ],
+  [
+    BookOpen,
+    'Story library',
+    'Save their favourite stories to a personal library, they can return to anytime.',
+  ],
+  [
+    Users,
+    'Multi-child ready',
+    'So every child feels included and is part of the magical experience. Pro supports up to 3 children, Pro Unlimited supports up to 6.',
+  ],
+  [
+    Zap,
+    'Fast generation',
+    'New bedtime stories in 10–20 seconds. Plus a new age appropriate word for your child to learn every night to increase their vocabulary.',
+  ],
 ];
 
-function classNames(...parts) {
+function classNamesfunction classNames(...parts) {
   return parts.filter(Boolean).join(' ');
 }
 
@@ -300,6 +348,7 @@ function parseStory(raw, profile, theme, moral, previousStories = [], language =
     series_id: seriesId,
     episode_number: nextEpisode,
     story_language: language,
+    voice_role: localStorage.getItem('moonspun_voice_role') || 'mother',
     cover_image: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(coverSeed)}`,
   };
 }
@@ -449,6 +498,48 @@ function InfoRow({ label, value }) {
   );
 }
 
+
+function EmbeddedCheckoutModal({ open, clientSecret, onClose }) {
+  if (!open || !clientSecret) return null;
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 px-3 py-6 backdrop-blur-sm"
+      >
+        <motion.div
+          initial={{ opacity: 0, y: 22, scale: 0.96 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 22, scale: 0.96 }}
+          className="relative max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-[28px] border border-white/10 bg-white p-3 shadow-2xl sm:p-5"
+        >
+          <button
+            onClick={onClose}
+            className="absolute right-3 top-3 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-slate-900 text-white shadow-lg"
+            aria-label="Close checkout"
+          >
+            ✕
+          </button>
+
+          <div className="mb-3 rounded-2xl bg-[#17143f] px-4 py-4 text-white">
+            <div className="text-sm font-extrabold uppercase tracking-[0.12em] text-moon">Secure checkout</div>
+            <div className="mt-1 text-sm text-white/80">
+              Your 3-day free trial starts today. You will be charged automatically after the trial ends unless you cancel.
+            </div>
+          </div>
+
+          <EmbeddedCheckoutProvider stripe={stripePromise} options={{ clientSecret }}>
+            <EmbeddedCheckout />
+          </EmbeddedCheckoutProvider>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function App() {
   const [screen, setScreen] = useState('landing');
   const [authMode, setAuthMode] = useState('login');
@@ -460,7 +551,7 @@ export default function App() {
   const [library, setLibrary] = useState([]);
   const [selectedTab, setSelectedTab] = useState('generate');
   const [selectedProfileId, setSelectedProfileId] = useState(null);
-  const [selectedTheme, setSelectedTheme] = useState(THEMES[0]);
+  const [selectedThemes, setSelectedThemes] = useState([THEME_OPTIONS[0]]);
   const [selectedLength, setSelectedLength] = useState(LENGTHS[0]);
   const [selectedMoral, setSelectedMoral] = useState('');
   const [wish, setWish] = useState('');
@@ -480,6 +571,9 @@ export default function App() {
   const [speakingStoryId, setSpeakingStoryId] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState('pro');
+  const [checkoutClientSecret, setCheckoutClientSecret] = useState('');
+  const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
+  const [selectedVoiceRole, setSelectedVoiceRole] = useState(() => localStorage.getItem('moonspun_voice_role') || 'mother');
 
   const token = session?.access_token;
   const user = session?.user;
@@ -520,6 +614,16 @@ export default function App() {
     setToast({ message, bg });
   }
 
+  function toggleTheme(theme) {
+    setSelectedThemes((prev) => {
+      if (prev.includes(theme)) {
+        return prev.length === 1 ? prev : prev.filter((item) => item !== theme);
+      }
+
+      return [...prev, theme];
+    });
+  }
+
   function stopSpeaking() {
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -535,42 +639,61 @@ export default function App() {
       Spanish: 'es-ES',
       French: 'fr-FR',
       German: 'de-DE',
-      Swahili: 'sw-KE',
-      Italian: 'it-IT',
+      'Mandarin (China)': 'zh-CN',
+      'Tagalog (Filipino)': 'fil-PH',
+      Vietnamese: 'vi-VN',
+      Arabic: 'ar-SA',
+      Korean: 'ko-KR',
+      Russian: 'ru-RU',
       Portuguese: 'pt-PT',
+      Hindi: 'hi-IN',
+      'Haitian Creole': 'ht-HT',
+      Italian: 'it-IT',
+      Punjabi: 'pa-IN',
       Japanese: 'ja-JP',
+      'Persian / Farsi': 'fa-IR',
+      Polish: 'pl-PL',
+      Turkish: 'tr-TR',
+      Dutch: 'nl-NL',
     };
 
     return map[language] || 'en-US';
   }
 
-  function getAvailableVoices() {
+  function getAvailableVoices  function getAvailableVoices() {
     if (!('speechSynthesis' in window)) return [];
     return window.speechSynthesis.getVoices() || [];
   }
 
-  function pickBestVoice(language) {
+  function pickBestVoice(language, voiceRole = selectedVoiceRole) {
     const targetLang = getSpeechLang(language).toLowerCase();
     const baseLang = targetLang.split('-')[0];
     const voices = getAvailableVoices();
 
     if (!voices.length) return null;
 
-    const exact = voices.find((voice) => voice.lang?.toLowerCase() === targetLang);
-    if (exact) return exact;
+    const roleHints =
+      voiceRole === 'father'
+        ? ['male', 'man', 'david', 'daniel', 'george', 'fred', 'alex', 'thomas', 'mark']
+        : ['female', 'woman', 'samantha', 'susan', 'victoria', 'karen', 'zira', 'anna', 'sara'];
 
-    const partial = voices.find((voice) =>
-      voice.lang?.toLowerCase().startsWith(baseLang)
-    );
-    if (partial) return partial;
+    const languageMatches = voices.filter((voice) => {
+      const voiceLang = voice.lang?.toLowerCase() || '';
+      return voiceLang === targetLang || voiceLang.startsWith(baseLang);
+    });
 
-    const englishFallback = voices.find((voice) =>
-      voice.lang?.toLowerCase().startsWith('en')
+    const roleMatch = languageMatches.find((voice) =>
+      roleHints.some((hint) => voice.name?.toLowerCase().includes(hint))
     );
+    if (roleMatch) return roleMatch;
+
+    if (languageMatches.length) return languageMatches[0];
+
+    const englishFallback = voices.find((voice) => voice.lang?.toLowerCase().startsWith('en'));
     return englishFallback || voices[0] || null;
   }
 
-  function waitForVoices(timeout = 1500) {
+  function waitForVoices  function waitForVoices(timeout = 1500) {
     return new Promise((resolve) => {
       if (!('speechSynthesis' in window)) {
         resolve([]);
@@ -614,6 +737,7 @@ export default function App() {
 
     const storyId = story.id || story.title;
     const narrationLanguage = story.story_language || language || 'English';
+    const narrationVoiceRole = story.voice_role || selectedVoiceRole;
 
     try {
       stopSpeaking();
@@ -625,7 +749,7 @@ export default function App() {
       utterance.pitch = 1;
       utterance.volume = 1;
 
-      const bestVoice = pickBestVoice(narrationLanguage);
+      const bestVoice = pickBestVoice(narrationLanguage, narrationVoiceRole);
       if (bestVoice) {
         utterance.voice = bestVoice;
         utterance.lang = bestVoice.lang || utterance.lang;
@@ -667,6 +791,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('storynest_selected_language', selectedLanguage);
   }, [selectedLanguage]);
+
+  useEffect(() => {
+    localStorage.setItem('moonspun_voice_role', selectedVoiceRole);
+  }, [selectedVoiceRole]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -865,6 +993,11 @@ export default function App() {
   async function handleGenerateStory(autoMode = false) {
     if (!selectedProfile || !token) return;
 
+    if (!isPaidPlan) {
+      showToast('Please start your 3-day trial to generate stories.', '#ff6b6b');
+      return;
+    }
+
     if (storiesGenerated >= maxStories) {
       showToast(
         currentPlan === 'free'
@@ -887,7 +1020,7 @@ export default function App() {
       const previousStories = selectedProfileStories.slice(0, 3);
       const prompt = buildPrompt(
         selectedProfile,
-        selectedTheme,
+        selectedThemes.join(', '),
         selectedLength,
         selectedMoral,
         wish.trim(),
@@ -900,7 +1033,7 @@ export default function App() {
       const story = parseStory(
         data.text,
         selectedProfile,
-        selectedTheme,
+        selectedThemes.join(', '),
         selectedMoral,
         previousStories,
         selectedLanguage
@@ -956,6 +1089,7 @@ export default function App() {
         series_id: currentStory.series_id || currentStory.child_id,
         episode_number: currentStory.episode_number || episodeCount + 1,
         story_language: currentStory.story_language || selectedLanguage,
+        voice_role: currentStory.voice_role || selectedVoiceRole,
         cover_image:
           currentStory.cover_image ||
           `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentStory.title)}`,
@@ -988,7 +1122,20 @@ export default function App() {
   async function startCheckout(planId = selectedCheckoutPlan) {
     try {
       const data = await createCheckoutSession(token, planId);
-      window.location.href = data.url;
+      const clientSecret = data.clientSecret || data.client_secret;
+
+      if (clientSecret) {
+        setCheckoutClientSecret(clientSecret);
+        setCheckoutModalOpen(true);
+        return;
+      }
+
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+
+      throw new Error('Checkout session was created but no checkout client secret was returned.');
     } catch (error) {
       showToast(error.message, '#ff6b6b');
     }
@@ -1062,7 +1209,7 @@ export default function App() {
                   }}
                   className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple"
                 >
-                  Start free
+                  Start trial
                 </MotionButton>
               </div>
 
@@ -1101,7 +1248,7 @@ export default function App() {
                       }}
                       className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
                     >
-                      Start free
+                      Start trial
                     </MotionButton>
                   </div>
                 </motion.div>
@@ -1151,7 +1298,7 @@ export default function App() {
                       }}
                       className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon"
                     >
-                      Create free account
+                      Start 3-day trial
                     </MotionButton>
                     <MotionButton
                       onClick={() => document.getElementById('pricing')?.scrollIntoView({ behavior: 'smooth' })}
@@ -1183,6 +1330,48 @@ export default function App() {
                     ))}
                   </div>
 
+
+                  <motion.section
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="mt-14 w-full max-w-5xl rounded-[28px] border border-white/12 bg-card/80 px-6 py-8 text-left shadow-[0_20px_60px_rgba(0,0,0,0.28)] sm:px-8 md:px-10"
+                  >
+                    <div className="mb-4 inline-flex rounded-full border border-moon/25 bg-moon/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.12em] text-moon">
+                      Better bedtime starts tonight
+                    </div>
+
+                    <h2 className="mb-5 font-display text-2xl leading-tight text-moon sm:text-3xl md:text-4xl">
+                      Join thousands of parents who have already made the switch.
+                    </h2>
+
+                    <p className="mb-5 text-base leading-8 text-text/90">
+                      74% of kids are addicted to screens before bedtime, often falling asleep to blue light that actively damages developing eyes and suppresses melatonin. They fall asleep eventually yes, but their brain doesn’t rest the way it should. It doesn’t happen overnight but it’s happening every night.
+                    </p>
+
+                    <p className="text-base leading-8 text-text/90">
+                      Moonspun was created to address this globally increasing health concern in young developing children, by replacing screen time before bedtime with the one thing your child needs the most, your voice reading to them. Replace a screen with a deeper bond with your child tonight.
+                    </p>
+                  </motion.section>
+
+                  <motion.section
+                    initial={{ opacity: 0, y: 24 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="mx-auto mt-10 w-full max-w-5xl rounded-[28px] border border-purple2/20 bg-night2/70 px-6 py-8 text-center sm:px-8 md:px-10"
+                  >
+                    <h2 className="mb-4 font-display text-2xl text-moon sm:text-3xl">
+                      They won’t stay little forever so make bedtime count together.
+                    </h2>
+
+                    <p className="mx-auto max-w-3xl text-base leading-8 text-muted">
+                      <strong className="font-extrabold text-text">
+                        86% of working parents feel they’re missing precious moments with their children - as excessive screen time quietly takes over.
+                      </strong>{' '}
+                      Moonspun helps you take those moments back, turning bedtime into magical, calming experiences you share together. Personalised stories, made in seconds, with your child at the heart of every adventure.
+                    </p>
+                  </motion.section>
+
                   <motion.section
                     id="pricing"
                     initial={{ opacity: 0, y: 20 }}
@@ -1197,21 +1386,7 @@ export default function App() {
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
-                      <MotionCard className="w-full max-w-[300px] rounded-xl2 border border-white/10 bg-card p-7">
-                        <div className="mb-2 text-base font-extrabold text-star">Free</div>
-                        <div className="text-4xl font-extrabold text-moon">
-                          $0<span className="text-sm font-normal text-muted">/month</span>
-                        </div>
-                        <div className="mt-4 space-y-2 text-left text-sm text-text">
-                          <div>✓ 3 free stories</div>
-                          <div>✓ 1 child profile</div>
-                          <div>✓ Save up to 3 free stories</div>
-                          <div className="opacity-40">✗ Auto next episode</div>
-                          <div className="opacity-40">✗ Voice narration</div>
-                        </div>
-                      </MotionCard>
-
-                      <MotionCard className="w-full max-w-[300px] rounded-xl2 border border-purple2/30 bg-card p-7">
+                      <MotionCard className="w-full max-w-[320px] rounded-xl2 border border-purple2/30 bg-card p-7">
                         <div className="mb-2 text-base font-extrabold text-star">Pro</div>
                         <div className="text-4xl font-extrabold text-moon">
                           $8.99<span className="text-sm font-normal text-muted">/month</span>
@@ -1221,14 +1396,15 @@ export default function App() {
                           <div>✓ Up to 3 child profiles</div>
                           <div>✓ Story series library + covers</div>
                           <div>✓ Auto next episodes</div>
+                          <div>✓ Voice narration</div>
                           <div>✓ 3-day free trial</div>
                         </div>
                         <div className="mt-4 text-xs leading-5 text-muted">
-                          Charged automatically after the 3-day free trial ends.
+                          Card required. You will be charged automatically after the 3-day free trial ends unless you cancel.
                         </div>
                       </MotionCard>
 
-                      <MotionCard className="relative w-full max-w-[300px] rounded-xl2 border-2 border-moon bg-card p-7">
+                      <MotionCard className="relative w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
                           MOST POPULAR
                         </div>
@@ -1244,7 +1420,7 @@ export default function App() {
                           <div>✓ 3-day free trial</div>
                         </div>
                         <div className="mt-4 text-xs leading-5 text-muted">
-                          Charged automatically after the 3-day free trial ends.
+                          Card required. You will be charged automatically after the 3-day free trial ends unless you cancel.
                         </div>
                       </MotionCard>
                     </div>
@@ -1278,7 +1454,7 @@ export default function App() {
                   </h2>
                   <p className="mb-7 text-center text-sm text-muted">
                     {authMode === 'signup'
-                      ? 'Start with 3 free stories — no card needed'
+                      ? 'Start your 3-day trial — card required, charged automatically after trial unless cancelled'
                       : 'Sign in to access your personalized stories and profiles'}
                   </p>
 
@@ -1476,11 +1652,34 @@ export default function App() {
                               <div className="mb-2 text-4xl">➕</div>
                               <div className="font-bold">Add child</div>
                             </MotionButton>
-                          )}
                         </div>
                       </div>
 
-                      <OptionGroup title="Theme" options={THEMES} value={selectedTheme} onChange={setSelectedTheme} />
+                      <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
+                        <div className="mb-3 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                          Themes
+                        </div>
+                        <div className="mb-3 text-xs text-muted">Choose one or more themes for tonight&apos;s story.</div>
+                        <div className="flex flex-wrap gap-3">
+                          {THEME_OPTIONS.map((theme) => {
+                            const selected = selectedThemes.includes(theme);
+                            return (
+                              <MotionButton
+                                key={theme}
+                                onClick={() => toggleTheme(theme)}
+                                className={classNames(
+                                  'rounded-full border px-4 py-2 text-sm font-bold transition',
+                                  selected
+                                    ? 'border-moon bg-moon/10 text-moon'
+                                    : 'border-white/10 bg-night3 text-text hover:border-purple2 hover:text-purple3'
+                                )}
+                              >
+                                {theme}
+                              </MotionButton>
+                            );
+                          })}
+                        </div>
+                      </MotionCard>
                       <OptionGroup title="Length" options={LENGTHS} value={selectedLength} onChange={setSelectedLength} />
                       <OptionGroup
                         title="Optional moral direction"
@@ -1508,6 +1707,31 @@ export default function App() {
 
                       <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
                         <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                          Narration voice
+                        </label>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {VOICE_ROLE_OPTIONS.map((voice) => (
+                            <MotionButton
+                              key={voice.value}
+                              onClick={() => setSelectedVoiceRole(voice.value)}
+                              className={classNames(
+                                'rounded-xl border px-4 py-3 text-sm font-bold transition',
+                                selectedVoiceRole === voice.value
+                                  ? 'border-moon bg-moon/10 text-moon'
+                                  : 'border-white/10 bg-night3 text-text hover:border-purple2 hover:text-purple3'
+                              )}
+                            >
+                              {voice.label}
+                            </MotionButton>
+                          ))}
+                        </div>
+                        <div className="mt-2 text-xs leading-5 text-muted">
+                          We choose the closest matching voice available on the parent&apos;s device.
+                        </div>
+                      </MotionCard>
+
+                      <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
+                        <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
                           Tonight&apos;s special detail
                         </label>
                         <textarea
@@ -1531,10 +1755,9 @@ export default function App() {
 
                       {!isPaidPlan && (
                         <MotionCard className="rounded-xl2 border border-moon/25 bg-card p-4">
-                          <div className="mb-1 font-bold text-moon">Free stories used: {storiesGenerated}/3</div>
+                          <div className="mb-1 font-bold text-moon">Start your bedtime trial</div>
                           <div className="mb-3 text-sm text-muted">
-                            Upgrade after your free stories to unlock Moonspun&apos;s paid plans. Both paid plans
-                            include a 3-day free trial and the parent will be charged automatically after the trial ends.
+                            Choose Pro or Pro Unlimited to start the 3-day trial. Card details are required, and the parent will be charged automatically after the trial ends unless they cancel.
                           </div>
 
                           <div className="mb-4 grid gap-3 md:grid-cols-2">
@@ -1569,14 +1792,12 @@ export default function App() {
                             3-day free trial. You will be charged automatically after the 3-day free trial ends.
                           </div>
 
-                          {(storiesGenerated >= 3 || profiles.length >= maxProfiles) && (
-                            <MotionButton
+                          <MotionButton
                               onClick={() => startCheckout(selectedCheckoutPlan)}
                               className="rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night"
                             >
                               Start {selectedCheckoutPlan === 'pro' ? 'Pro' : 'Pro Unlimited'} trial
                             </MotionButton>
-                          )}
                         </MotionCard>
                       )}
 
@@ -1680,7 +1901,7 @@ export default function App() {
                             <MotionButton
                               onClick={() =>
                                 speakStory(
-                                  { ...currentStory, id: currentStory.id || currentStory.title },
+                                  { ...currentStory, id: currentStory.id || currentStory.title, voice_role: currentStory.voice_role || selectedVoiceRole },
                                   currentStory.story_language || selectedLanguage
                                 )
                               }
@@ -2335,6 +2556,14 @@ export default function App() {
         </AnimatePresence>
 
         
+        <EmbeddedCheckoutModal
+          open={checkoutModalOpen}
+          clientSecret={checkoutClientSecret}
+          onClose={() => {
+            setCheckoutModalOpen(false);
+            setCheckoutClientSecret('');
+          }}
+        />
         <Toast toast={toast} />
       </div>
     </div>

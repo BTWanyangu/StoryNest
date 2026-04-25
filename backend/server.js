@@ -15,7 +15,7 @@ const supabaseAdmin = createClient(
 );
 
 const PLAN_LIMITS = {
-  free: { stories: 3, children: 1 },
+  free: { stories: 0, children: 0 },
   pro: { stories: 50, children: 3 },
   pro_unlimited: { stories: Infinity, children: 6 },
 };
@@ -76,6 +76,7 @@ async function getAuthContext(req) {
   }
 
   const { data, error } = await supabaseAdmin.auth.getUser(token);
+
   if (error || !data?.user) {
     const authError = new Error('Unauthorized');
     authError.status = 401;
@@ -83,6 +84,7 @@ async function getAuthContext(req) {
   }
 
   const userId = data.user.id;
+
   const { data: userRecord, error: userRecordError } = await supabaseAdmin
     .from('users')
     .select('*')
@@ -199,6 +201,7 @@ async function applySubscriptionToUser(userId, stripeCustomerId, subscription) {
   const firstItem = subscription?.items?.data?.[0];
   const priceId = firstItem?.price?.id || null;
   const plan = resolvePlanFromPriceId(priceId);
+
   const currentPeriodStart = toIsoOrNull(subscription?.current_period_start);
   const currentPeriodEnd = toIsoOrNull(subscription?.current_period_end);
   const trialEndsAt = toIsoOrNull(subscription?.trial_end);
@@ -278,6 +281,12 @@ app.post('/generate-story', async (req, res) => {
       return res.status(400).json({ error: 'Prompt is required' });
     }
 
+    if (!['pro', 'pro_unlimited'].includes(userRecord.plan)) {
+      return res.status(403).json({
+        error: 'Please start your 3-day trial to generate stories.',
+      });
+    }
+
     userRecord = await maybeResetUsageWindow(userRecord);
 
     const planLimits = getPlanLimits(userRecord.plan);
@@ -286,9 +295,7 @@ app.post('/generate-story', async (req, res) => {
     if (Number.isFinite(storyAllowance) && userRecord.stories_generated >= storyAllowance) {
       return res.status(403).json({
         error:
-          userRecord.plan === 'free'
-            ? 'Free story limit reached. Upgrade to continue.'
-            : userRecord.plan === 'pro'
+          userRecord.plan === 'pro'
             ? 'Pro story limit reached for this billing cycle. Upgrade to Pro Unlimited or wait for renewal.'
             : 'Story limit reached.',
       });
@@ -318,6 +325,7 @@ app.post('/generate-story', async (req, res) => {
           anthropicData?.message ||
           'Anthropic request failed'
       );
+
       error.status = anthropicResponse.status;
       throw error;
     }
@@ -338,27 +346,30 @@ app.post('/create-checkout-session', async (req, res) => {
     const requestedPlan = req.body?.plan;
 
     if (!requestedPlan || !['pro', 'pro_unlimited'].includes(requestedPlan)) {
-      return res.status(400).json({ error: 'A valid plan is required: pro or pro_unlimited.' });
+      return res.status(400).json({
+        error: 'A valid plan is required: pro or pro_unlimited.',
+      });
     }
 
     const selectedPriceId = resolvePriceIdFromPlan(requestedPlan);
 
     if (!selectedPriceId) {
-      return res.status(500).json({ error: `Price ID is not configured for plan ${requestedPlan}.` });
+      return res.status(500).json({
+        error: `Price ID is not configured for plan ${requestedPlan}.`,
+      });
     }
 
     const stripeCustomerId = await ensureValidStripeCustomer(authUser, userRecord);
 
     const session = await stripe.checkout.sessions.create({
+      ui_mode: 'embedded',
       customer: stripeCustomerId,
-      customer_email: stripeCustomerId ? undefined : authUser.email,
       payment_method_types: ['card'],
       line_items: [{ price: selectedPriceId, quantity: 1 }],
       mode: 'subscription',
       automatic_tax: { enabled: true },
       customer_update: { address: 'auto' },
-      success_url: `${process.env.FRONTEND_URL}?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}?cancelled=true`,
+      return_url: `${process.env.FRONTEND_URL}?session_id={CHECKOUT_SESSION_ID}`,
       metadata: {
         storynest_user_id: authUser.id,
         selected_plan: requestedPlan,
@@ -372,7 +383,10 @@ app.post('/create-checkout-session', async (req, res) => {
       },
     });
 
-    return res.json({ url: session.url });
+    return res.json({
+      clientSecret: session.client_secret,
+      sessionId: session.id,
+    });
   } catch (error) {
     console.error('[create-checkout-session]', error);
     return res.status(error.status || 500).json({
@@ -491,13 +505,17 @@ app.post('/sync-checkout-session', async (req, res) => {
     const sessionId = req.query.session_id;
 
     if (!sessionId) {
-      return res.status(400).json({ error: 'session_id query parameter is required' });
+      return res.status(400).json({
+        error: 'session_id query parameter is required',
+      });
     }
 
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.metadata?.storynest_user_id !== authUser.id) {
-      return res.status(403).json({ error: 'Checkout session does not belong to this user' });
+      return res.status(403).json({
+        error: 'Checkout session does not belong to this user',
+      });
     }
 
     if (session.customer && session.subscription) {
@@ -574,7 +592,12 @@ app.post('/webhook', async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
-        if (session.mode === 'subscription' && session.metadata?.storynest_user_id && session.subscription) {
+
+        if (
+          session.mode === 'subscription' &&
+          session.metadata?.storynest_user_id &&
+          session.subscription
+        ) {
           const subscription = await stripe.subscriptions.retrieve(session.subscription, {
             expand: ['items.data.price'],
           });
@@ -585,6 +608,7 @@ app.post('/webhook', async (req, res) => {
             subscription
           );
         }
+
         break;
       }
 
@@ -607,6 +631,7 @@ app.post('/webhook', async (req, res) => {
         ) {
           await downgradeUserToFreeByCustomerId(subscription.customer);
         }
+
         break;
       }
 
@@ -626,6 +651,7 @@ app.post('/webhook', async (req, res) => {
             plan = resolvePlanFromPriceId(priceId);
 
             const userRecord = await db.getUserByStripeCustomerId(invoice.customer);
+
             if (userRecord && ['pro', 'pro_unlimited'].includes(plan)) {
               await applySubscriptionToUser(userRecord.id, invoice.customer, subscription);
             }
