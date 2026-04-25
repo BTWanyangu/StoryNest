@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { AVATARS, LENGTHS, MORALS, STORY_ICONS } from './constants';
 import { supabase } from './lib/supabase';
 import logo from './assets/logo.png';
-import { Sparkles, BookOpen, Users, Zap } from 'lucide-react';
+import { Sparkles, BookOpen, Users, Zap, Globe } from 'lucide-react';
 import {
   createCheckoutSession,
   createPortalSession,
@@ -134,6 +134,11 @@ const features = [
     Zap,
     'Fast generation',
     'New bedtime stories in 10–20 seconds. Plus a new age appropriate word for your child to learn every night to increase their vocabulary.',
+  ],
+  [
+    Globe,
+    'BILINGUAL MODE',
+    'For parents who want their children to learn different languages or to retain their family heritage language.',
   ],
 ];
 
@@ -1270,9 +1275,9 @@ export default function App() {
                     initial={{ opacity: 0, y: 18 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.05 }}
-                    className="mb-3 max-w-5xl font-display text-3xl leading-tight text-moon sm:text-4xl md:text-5xl lg:text-6xl"
+                    className="mb-3 max-w-5xl  text-3xl leading-tight text-moon sm:text-4xl md:text-5xl lg:text-6xl"
                   >
-                    Every night, a new story with <em className="italic text-purple3">your child</em> as the hero
+                     They won’t stay little forever so make <em className="text-purple3">bedtime count</em>  together.
                   </motion.h1>
 
                   <motion.p
@@ -1281,8 +1286,7 @@ export default function App() {
                     transition={{ delay: 0.1 }}
                     className="mb-8 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-[1.05rem]"
                   >
-                    Moonspun creates deeply personal bedtime stories shaped by your child&apos;s name, age,
-                    interests, theme, and story world — warm, vivid, and ready in seconds.
+                    86% of working parents feel they’re missing precious moments with their children - as excessive screen time quietly takes over. Moonspun helps you take those moments back, turning bedtime into magical, calming experiences you share together. Personalised stories, made in seconds, with your child at the heart of every adventure.
                   </motion.p>
 
                   <motion.div
@@ -1354,23 +1358,7 @@ export default function App() {
                     </p>
                   </motion.section>
 
-                  <motion.section
-                    initial={{ opacity: 0, y: 24 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    className="mx-auto mt-10 w-full max-w-5xl rounded-[28px] border border-purple2/20 bg-night2/70 px-6 py-8 text-center sm:px-8 md:px-10"
-                  >
-                    <h2 className="mb-4 font-display text-2xl text-moon sm:text-3xl">
-                      They won’t stay little forever so make bedtime count together.
-                    </h2>
-
-                    <p className="mx-auto max-w-3xl text-base leading-8 text-muted">
-                      <strong className="font-extrabold text-text">
-                        86% of working parents feel they’re missing precious moments with their children - as excessive screen time quietly takes over.
-                      </strong>{' '}
-                      Moonspun helps you take those moments back, turning bedtime into magical, calming experiences you share together. Personalised stories, made in seconds, with your child at the heart of every adventure.
-                    </p>
-                  </motion.section>
+                  
 
                   <motion.section
                     id="pricing"
@@ -1386,7 +1374,10 @@ export default function App() {
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
-                      <MotionCard className="w-full max-w-[320px] rounded-xl2 border border-purple2/30 bg-card p-7">
+                      <MotionCard className="w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
+      MOST POPULAR
+    </div>
                         <div className="mb-2 text-base font-extrabold text-star">Pro</div>
                         <div className="text-4xl font-extrabold text-moon">
                           $8.99<span className="text-sm font-normal text-muted">/month</span>
@@ -1405,9 +1396,7 @@ export default function App() {
                       </MotionCard>
 
                       <MotionCard className="relative w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
-                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
-                          MOST POPULAR
-                        </div>
+                        
                         <div className="mb-2 text-base font-extrabold text-star">Pro Unlimited</div>
                         <div className="text-4xl font-extrabold text-moon">
                           $14.99<span className="text-sm font-normal text-muted">/month</span>

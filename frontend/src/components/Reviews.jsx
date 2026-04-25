@@ -51,6 +51,7 @@ const reviews = [
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80",
     text: `Moonspun is one of the most exciting reading tools I’ve seen. It blends imagination, reading practice, and technology beautifully. Children stay engaged while still building real literacy skills.`,
   },
+  
 ];
 
 function ReviewCard({ review }) {
@@ -136,8 +137,7 @@ export default function Review() {
           </h3>
 
           <p className="mx-auto mt-6 max-w-3xl text-lg leading-8 text-purple-500 md:text-xl">
-            Join thousands of satisfied families who are making reading an
-            exciting adventure with Moonspun.
+            Join thousands of satisfied families who are making the switch to Moonspun.
           </p>
         </motion.div>
 
