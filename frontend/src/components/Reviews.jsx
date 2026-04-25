@@ -128,7 +128,7 @@ export default function Review() {
           </motion.div>
 
           <h2 className="mt-8 text-4xl font-bold leading-tight text-moon md:text-6xl">
-            Stories from Our
+            Reviews from Our
           </h2>
 
           <h3 className="mt-2 bg-gradient-to-r from-violet-600 to-fuchsia-500 bg-clip-text text-4xl font-bold leading-tight text-transparent md:text-6xl">
@@ -210,7 +210,7 @@ export default function Review() {
             className="flex items-center gap-2 text-base md:text-lg"
           >
             <BookOpen className="h-5 w-5 text-violet-600" />
-            <span>2,000+ Stories Generated</span>
+            <span>30,000+ Stories Generated</span>
           </motion.div>
 
           <motion.div
@@ -218,7 +218,7 @@ export default function Review() {
             className="flex items-center gap-2 text-base md:text-lg"
           >
             <Quote className="h-5 w-5 text-violet-600" />
-            <span>100+ Happy Families</span>
+            <span>5,000+ Happy Families</span>
           </motion.div>
         </motion.div>
       </div>
