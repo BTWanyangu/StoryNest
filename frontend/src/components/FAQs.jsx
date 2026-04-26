@@ -78,7 +78,7 @@ export default function FAQs() {
   };
 
   return (
-    <section className="w-full border-t border-violet-100 bg-gradient-to-b from to-white px-4 py-20 md:px-8 md:py-28">
+    <section className="w-full bg-gradient-to-b from to-white px-4 py-20 md:px-8 md:py-28">
       <div className="mx-auto max-w-6xl">
         <motion.div
           className="text-center"
