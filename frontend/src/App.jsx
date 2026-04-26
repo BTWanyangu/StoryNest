@@ -1336,13 +1336,13 @@ export default function App() {
                     </MotionButton>
                   </motion.div>
 
-                  <div className="grid w-full max-w-6xl grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                    {features.map(([Icon, title, desc], index) => (
-                      <MotionCard
-                        key={title}
-                        delay={0.06 * index}
-                        className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-6 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#f5c85b]/45 hover:shadow-[0_18px_40px_rgba(11,10,40,0.42)]"
-                      >
+                  <div className="grid w-full max-w-7xl grid-cols-1 gap-5 md:grid-cols-5">
+  {features.map(([Icon, title, desc], index) => (
+    <MotionCard
+      key={title}
+      delay={0.06 * index}
+      className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-4 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#f5c85b]/45 hover:shadow-[0_18px_40px_rgba(11,10,40,0.42)]"
+    >
                         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-70" />
                         <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-[#f5c85b]/10 blur-2xl opacity-0 transition duration-300 group-hover:opacity-100" />
 
