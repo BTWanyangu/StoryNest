@@ -5,53 +5,85 @@ import { BookOpen, Pause, Play, Quote, Star } from "lucide-react";
 const reviews = [
   {
     id: 1,
-    name: "Sarah M.",
+    name: "Laura S.",
     role: "Parent of two",
     image:
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80",
-    text: `Moonspun has transformed our bedtime routine! My kids are so excited to create their own stories, and I love how it adapts to their reading levels. The AI-generated content is incredibly engaging and educational.`,
+    text: `My daughter had a tough day at school on Tuesday, a falling out with her best friend. I typed what happened into Moonspun and that night her story was about a girl who found a way to mend something that felt broken. She didn't know I did it. She just said it was the best story she'd ever heard. I cried.`,
   },
   {
     id: 2,
-    name: "David L.",
+    name: "Charlotte T.",
     role: "Elementary Teacher",
     image:
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
-    text: `As an educator, I'm amazed by how Moonspun combines creativity with learning. The AI-generated stories are not only entertaining but also help develop critical thinking and reading comprehension skills.`,
+    text: `My son is seven. I know that in a few years he will think bedtime stories are babyish. So every single night right now matters more than I can explain. Moonspun means I never run out of stories, I never repeat one, and I never have to say 'not tonight. I am not wasting a single night of this window.`,
   },
   {
     id: 3,
-    name: "Emily R.",
+    name: "Dani K.",
     role: "Mom of three",
     image:
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&auto=format&fit=crop&q=80",
-    text: `The personalization features are incredible! Each of my children has their own unique reading journey, and they love being able to influence their stories. The audio narration and images make it even more immersive.`,
+    text: `I am a single mum working full time. By 7:30pm I have nothing left. I used to feel so guilty putting my daughter to bed without a proper story. Now I type three words into Moonspun and sixty seconds later she is hearing an adventure about herself that I could never have invented on my best day. It did not fix my exhaustion. It just made sure she does not feel it.`,
   },
   {
     id: 4,
-    name: "Jessica T.",
+    name: "Jason B.",
     role: "Homeschool Parent",
     image:
       "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=200&auto=format&fit=crop&q=80",
-    text: `This platform has made learning at home so much more joyful. My daughter actually asks for reading time now, and I can see her confidence growing with every new story she creates.`,
+    text: `I travel for work three weeks out of four. I miss bedtime more than I miss anything else in my life. My wife sets up Moonspun before I land, puts in something I told her about our daughter's week, and by the time I call to say goodnight she has already heard a story that has a piece of me in it somehow. It is not the same as being there. But it is the closest thing I have and really appreciate.`,
   },
   {
     id: 5,
-    name: "Michael B.",
+    name: "Maria L.",
     role: "Father of one",
     image:
       "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80",
-    text: `I was surprised by how thoughtful and creative the stories are. Moonspun gives my son stories he connects with personally, and that has made a huge difference in his reading habits.`,
+    text: `My mother only speaks Spanish and my children are growing up in English. I set Moonspun to bilingual mode and now every story has both. Last week my daughter used a Spanish word at dinner that she had only ever heard in her Moonspun story. My mother cried. I cannot put a price on that.`,
   },
   {
     id: 6,
-    name: "Olivia K.",
+    name: "Hazel R.",
     role: "Literacy Coach",
     image:
       "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80",
-    text: `Moonspun is one of the most exciting reading tools I’ve seen. It blends imagination, reading practice, and technology beautifully. Children stay engaged while still building real literacy skills.`,
+    text: `I went down a rabbit hole at 2am reading about blue light and children's developing eyes. What I found scared me. Children's eyes cannot filter blue light the way adult eyes can. The damage to the photoreceptors in a developing retina is cumulative and irreversible. My son had been falling asleep to his tablet every night for two years. I cancelled his screen time that night and found Moonspun the next morning. I have not felt guilty about bedtime since.`,
   },
-  
+  {
+    id: 7,
+    name: "Jackie D.",
+    role: "Parent of twins",
+    image:
+      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&auto=format&fit=crop&q=80",
+    text: `My son is four. The first time he heard his own name in a Moonspun story he went completely still and stared at me. Then he whispered - Mummy, it knows me. I have never in my life wanted to freeze a moment more than that one. We have used it every night for two months and he still gets that look. Every single time.`,
+  },
+  {
+    id: 8,
+    name: "OLivia M.",
+    role: "Father of two",
+    image:
+      "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=200&auto=format&fit=crop&q=80",
+    text: `We made every screen time mistake with our first child and watched him struggle with sleep, concentration, and anxiety for years before we connected it to his evening tablet habit. By the time our daughter came along we were not making the same mistakes. No screens after six. Moonspun every night instead.
+She is three, she sleeps ten hours straight, and she wakes up asking what adventure is coming tonight. The difference between our two children's sleep is not personality. It is bedtime screens. We are certain of it.`,
+  },
+  {
+    id: 9,
+    name: "Luna K.",
+    role: "Mom of one",
+    image:
+      "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&auto=format&fit=crop&q=80",
+    text: `My son's teacher called me in to discuss his concentration levels in class. He was bright but could not focus past the first hour of the morning. She asked about his sleep. I described our evenings, dinner, tablet, bed. She told me very gently that blue light before sleep reduces REM sleep in children by up to forty percent, and that REM sleep is when the brain consolidates memory and learning from the day. My son was going to school every day without having properly processed the day before. We switched to Moonspun that night. His teacher commented on the change within three weeks. I cried in the car on the way`,
+  },
+  {
+    id: 10,
+    name: "Ruoxi Q.",
+    role: "Parent of three",
+    image:
+      "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=200&auto=format&fit=crop&q=80",
+    text: `Our paediatrician told us at our daughter's four-year well-child check-up that the blue light from her tablet before bed was suppressing her melatonin production so significantly that her brain was not entering deep sleep until almost midnight — even though she appeared to be asleep by eight. We had no idea. We thought she was just a light sleeper. We cut screens at bedtime immediately and started Moonspun the same week. Within ten days she was sleeping through. I genuinely wish someone had told us sooner.`,
+  },
 ];
 
 function ReviewCard({ review }) {

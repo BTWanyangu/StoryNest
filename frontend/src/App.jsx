@@ -138,7 +138,7 @@ const features = [
   [
     Globe,
     'BILINGUAL MODE',
-    'For parents who want their children to learn different languages or to retain their family heritage language.',
+    'Bilingual children consistently outperform their peers in concentration, mental flexibility, and the ability to switch between complex tasks. Not because they are naturally smarter but because  using two languages every day builds a brain that is stronger, faster, and more resilient than one that has only ever needed one. Moonspun makes that advantage available to every child, one story at a time, each night at a time.',
   ],
 ];
 
@@ -1369,8 +1369,7 @@ export default function App() {
                   >
                     <h2 className="mb-2 font-display text-3xl text-moon">Choose your plan</h2>
                     <p className="mb-6 text-muted">
-                      Both paid plans include a 3-day free trial. Parents are charged automatically after the
-                      free trial ends unless they cancel.
+                      Both paid plans include a 3-day free trial. You are then charged automatically for the plan you have selected, after the free trial has ended, which you can cancel in your account at any time.
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
@@ -1383,12 +1382,12 @@ export default function App() {
                           $8.99<span className="text-sm font-normal text-muted">/month</span>
                         </div>
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
-                          <div>✓ 50 stories per month</div>
-                          <div>✓ Up to 3 child profiles</div>
-                          <div>✓ Story series library + covers</div>
-                          <div>✓ Auto next episodes</div>
-                          <div>✓ Voice narration</div>
-                          <div>✓ 3-day free trial</div>
+                          <div><span className='text-moon font-bold'>✓</span> 50 stories per month</div>
+                          <div><span className='text-moon font-bold'>✓</span> Up to 2 child profiles</div>
+                          <div><span className='text-moon font-bold'>✓</span> Multilingual mode</div>
+                          <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
+                          <div><span className='text-moon font-bold'>✓</span> Voice narration</div>
+                          <div><span className='text-moon font-bold'>✓</span> 3-day free trial</div>
                         </div>
                         <div className="mt-4 text-xs leading-5 text-muted">
                           Card required. You will be charged automatically after the 3-day free trial ends unless you cancel.
@@ -1402,11 +1401,13 @@ export default function App() {
                           $14.99<span className="text-sm font-normal text-muted">/month</span>
                         </div>
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
-                          <div>✓ Unlimited stories</div>
-                          <div>✓ Up to 6 child profiles</div>
-                          <div>✓ Story series library + covers</div>
-                          <div>✓ Auto next episodes + voice narration</div>
-                          <div>✓ 3-day free trial</div>
+                          <div><span className='text-moon font-bold'>✓</span> Unlimited stories per month</div>
+                          <div><span className='text-moon font-bold'>✓</span> Up to 6 child profiles</div>
+                          <div><span className='text-moon font-bold'>✓</span> Multilingual mode</div>
+                          <div><span className='text-moon font-bold'>✓</span> Story series libray</div>
+                          <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
+                          <div><span className='text-moon font-bold'>✓</span> Voice narration</div>
+                          <div><span className='text-moon font-bold'>✓</span> 3-day free trial</div>
                         </div>
                         <div className="mt-4 text-xs leading-5 text-muted">
                           Card required. You will be charged automatically after the 3-day free trial ends unless you cancel.

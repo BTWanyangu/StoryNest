@@ -28,7 +28,7 @@ const stats = [
     id: 4,
     value: 4.8,
     suffix: "/5",
-    label: "Average Rating",
+    label: "Excellent Rating",
     icon: Brain,
     decimals: 1,
   },

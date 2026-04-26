@@ -31,9 +31,9 @@ const faqs = [
 ];
 
 const bottomTexts = [
-  "Quick answers for parents",
-  "Safe, simple, and personalized",
-  "Built for a real product experience",
+  "Simple enough for any parent ",
+  "Safe enough for any child",
+  "Magical enough to remember forever",
 ];
 
 function TypedText({ text, delay = 0 }) {

@@ -15,8 +15,8 @@ const featureHighlights = [
     icon: BookOpen,
   },
   {
-    title: "Interactive Learning",
-    subtitle: "Engaging multimedia content",
+    title: "Multilungual Support",
+    subtitle: "Fluent before they know it",
     icon: PlaySquare,
   },
 ];
@@ -51,9 +51,7 @@ export default function Footer({setScreen}) {
             />
 
             <p className="max-w-xl text-base leading-8 text-slate-300 md:text-lg">
-              Empowering children to create and explore magical stories through
-              the power of AI. Join us in making reading and storytelling an
-              unforgettable adventure.
+              Apps come and go. Moonspun stays, in the memories your child carries into adulthood of the nights they were the hero. Tonight thousands of children went to bed empowered, as the hero of their own unique story. Tomorrow night, yours can too.
             </p>
           </div>
 
