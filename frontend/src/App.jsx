@@ -744,11 +744,11 @@ export default function App() {
   const narrationLanguage = story.story_language || language || 'English';
   const narrationVoiceRole = story.voice_role || selectedVoiceRole;
 
-  const BEDTIME_RATE = 0.68;
+  const BEDTIME_RATE = 0.70;
   const BEDTIME_PITCH = narrationVoiceRole === 'father' ? 0.78 : 0.88;
   const BEDTIME_VOLUME = 0.9;
-  const PARAGRAPH_PAUSE_MS = 900;
-  const TITLE_PAUSE_MS = 1200;
+  const PARAGRAPH_PAUSE_MS = 200;
+  const TITLE_PAUSE_MS = 400;
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
