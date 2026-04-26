@@ -83,8 +83,8 @@ const THEME_OPTIONS = [
 ];
 
 const VOICE_ROLE_OPTIONS = [
-  { value: 'mother', label: 'Mother voice' },
-  { value: 'father', label: 'Father voice' },
+  { value: 'female', label: 'Female voice' },
+  { value: 'male', label: 'Male voice' },
 ];
 
 const PLAN_META = {
@@ -353,7 +353,7 @@ function parseStory(raw, profile, theme, moral, previousStories = [], language =
     series_id: seriesId,
     episode_number: nextEpisode,
     story_language: language,
-    voice_role: localStorage.getItem('moonspun_voice_role') || 'mother',
+    voice_role: localStorage.getItem('moonspun_voice_role') || 'female',
     cover_image: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(coverSeed)}`,
   };
 }
@@ -578,7 +578,7 @@ export default function App() {
   const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState('pro');
   const [checkoutClientSecret, setCheckoutClientSecret] = useState('');
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
-  const [selectedVoiceRole, setSelectedVoiceRole] = useState(() => localStorage.getItem('moonspun_voice_role') || 'mother');
+  const [selectedVoiceRole, setSelectedVoiceRole] = useState(() => localStorage.getItem('moonspun_voice_role') || 'female');
 
   const token = session?.access_token;
   const user = session?.user;
@@ -678,7 +678,7 @@ export default function App() {
     if (!voices.length) return null;
 
     const roleHints =
-      voiceRole === 'father'
+      voiceRole === 'male'
         ? ['male', 'man', 'david', 'daniel', 'george', 'fred', 'alex', 'thomas', 'mark']
         : ['female', 'woman', 'samantha', 'susan', 'victoria', 'karen', 'zira', 'anna', 'sara'];
 
@@ -730,68 +730,92 @@ export default function App() {
   }
 
   async function speakStory(story, language = selectedLanguage) {
-    if (!isPaidPlan) {
-      showToast('Voice narration is available on paid plans.', '#ff6b6b');
-      return;
-    }
+  if (!isPaidPlan) {
+    showToast('Voice narration is available on paid plans.', '#ff6b6b');
+    return;
+  }
 
-    if (!('speechSynthesis' in window)) {
-      showToast('Voice narration is not supported in this browser.', '#ff6b6b');
-      return;
-    }
+  if (!('speechSynthesis' in window)) {
+    showToast('Voice narration is not supported in this browser.', '#ff6b6b');
+    return;
+  }
 
-    const storyId = story.id || story.title;
-    const narrationLanguage = story.story_language || language || 'English';
-    const narrationVoiceRole = story.voice_role || selectedVoiceRole;
+  const storyId = story.id || story.title;
+  const narrationLanguage = story.story_language || language || 'English';
+  const narrationVoiceRole = story.voice_role || selectedVoiceRole;
 
-    try {
-      stopSpeaking();
-      await waitForVoices();
+  const BEDTIME_RATE = 0.68;
+  const BEDTIME_PITCH = narrationVoiceRole === 'father' ? 0.78 : 0.88;
+  const BEDTIME_VOLUME = 0.9;
+  const PARAGRAPH_PAUSE_MS = 900;
+  const TITLE_PAUSE_MS = 1200;
 
-      const utterance = new SpeechSynthesisUtterance(`${story.title}. ${story.body}`);
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const speakText = (text, bestVoice) =>
+    new Promise((resolve, reject) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+
       utterance.lang = getSpeechLang(narrationLanguage);
-      utterance.rate = 0.92;
-      utterance.pitch = 1;
-      utterance.volume = 1;
+      utterance.rate = BEDTIME_RATE;
+      utterance.pitch = BEDTIME_PITCH;
+      utterance.volume = BEDTIME_VOLUME;
 
-      const bestVoice = pickBestVoice(narrationLanguage, narrationVoiceRole);
       if (bestVoice) {
         utterance.voice = bestVoice;
         utterance.lang = bestVoice.lang || utterance.lang;
       }
 
-      utterance.onstart = () => {
-        setSpeakingStoryId(storyId);
-      };
-
-      utterance.onend = () => {
-        setSpeakingStoryId(null);
-      };
+      utterance.onend = resolve;
 
       utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
-        setSpeakingStoryId(null);
-        showToast('Could not play narration', '#ff6b6b');
+        if (event.error === 'interrupted' || event.error === 'canceled') {
+          resolve();
+          return;
+        }
+
+        reject(event);
       };
 
-      setSpeakingStoryId(storyId);
+      window.speechSynthesis.speak(utterance);
+    });
 
-      setTimeout(() => {
-        try {
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.speak(utterance);
-        } catch (error) {
-          console.error('Speech playback failed:', error);
-          setSpeakingStoryId(null);
-          showToast('Could not play narration', '#ff6b6b');
-        }
-      }, 120);
-    } catch (error) {
-      console.error('Narration setup failed:', error);
-      setSpeakingStoryId(null);
-      showToast('Could not play narration', '#ff6b6b');
+  try {
+    stopSpeaking();
+    await waitForVoices();
+
+    const bestVoice = pickBestVoice(narrationLanguage, narrationVoiceRole);
+
+    const paragraphs = String(story.body || '')
+      .split(/\n\s*\n/)
+      .map((paragraph) => paragraph.trim())
+      .filter(Boolean);
+
+    setSpeakingStoryId(storyId);
+
+    window.speechSynthesis.cancel();
+
+    await sleep(150);
+
+    await speakText(story.title, bestVoice);
+    await sleep(TITLE_PAUSE_MS);
+
+    for (const paragraph of paragraphs) {
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+
+      await speakText(paragraph, bestVoice);
+      await sleep(PARAGRAPH_PAUSE_MS);
     }
+
+    setSpeakingStoryId(null);
+  } catch (error) {
+    console.error('Narration setup failed:', error);
+    setSpeakingStoryId(null);
+    showToast('Could not play narration', '#ff6b6b');
   }
+}
 
   useEffect(() => {
     localStorage.setItem('storynest_selected_language', selectedLanguage);
