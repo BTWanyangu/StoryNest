@@ -92,8 +92,8 @@ const THEME_OPTIONS = [
 ];
 
 const VOICE_ROLE_OPTIONS = [
-  { value: 'mother', label: 'Mother voice' },
-  { value: 'father', label: 'Father voice' },
+  { value: 'female', label: 'Female voice' },
+  { value: 'male', label: 'Male voice' },
 ];
 
 const PLAN_META = {
@@ -110,7 +110,7 @@ const PLAN_META = {
     label: 'Pro',
     displayPrice: '$8.99',
     stories: 50,
-    children: 3,
+    children: 2,
     isPaid: true,
   },
   pro_unlimited: {
@@ -137,7 +137,7 @@ const features = [
   [
     Users,
     'MULTI-CHILD READY',
-    'So every child feels included and is part of the magical experience. Pro supports up to 3 children, Pro Unlimited supports up to 6.',
+    'So every child feels included and is part of the magical experience. Pro supports up to 2 children, Pro Unlimited supports up to 6.',
   ],
   [
     Zap,
@@ -1594,7 +1594,7 @@ export default function App() {
                     className="mt-14 w-full text-center"
                   >
                     <h2 className="mb-2 font-display text-3xl text-moon">Choose your plan</h2>
-                    <p className="mb-6 text-muted">
+                    <p className="mb-6 text-white text-bold font-bold">
                       Both paid plans include a 3-day free trial. You are then charged automatically for the plan you have selected, after the free trial has ended, which you can cancel in your account at any time.
                     </p>
 
@@ -1609,14 +1609,15 @@ export default function App() {
                         </div>
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
                           <div><span className='text-moon font-bold'>✓</span> 50 stories per month</div>
-                          <div><span className='text-moon font-bold'>✓</span> Up to 3 child profiles</div>
+                          <div><span className='text-moon font-bold'>✓</span> Up to 2 child profiles</div>
                           <div><span className='text-moon font-bold'>✓</span> Multilingual mode</div>
                           <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
                           <div><span className='text-moon font-bold'>✓</span> Voice narration</div>
+                          <div><span className='text-moon font-bold'>✓</span> Save 50 stories to your library</div>
                           <div><span className='text-moon font-bold'>✓</span> 3-day free trial</div>
                         </div>
                         <div className="mt-4 text-xs leading-5 text-muted">
-                          Card required. You will be charged automatically after the 3-day free trial ends unless you cancel.
+                            Card required. You will be charged automatically after the 3-day free trial ends, which you can cancel at any time.
                         </div>
                       </MotionCard>
 
@@ -1633,10 +1634,11 @@ export default function App() {
                           <div><span className='text-moon font-bold'>✓</span> Story series libray</div>
                           <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
                           <div><span className='text-moon font-bold'>✓</span> Voice narration</div>
+                          <div><span className='text-moon font-bold'>✓</span> Save unlimited stories to your library</div>
                           <div><span className='text-moon font-bold'>✓</span> 3-day free trial</div>
                         </div>
                         <div className="mt-4 text-xs leading-5 text-muted">
-                          Card required. You will be charged automatically after the 3-day free trial ends unless you cancel.
+                          Card required. You will be charged automatically after the 3-day free trial ends, which you can cancel at any time.
                         </div>
                       </MotionCard>
                     </div>
@@ -2416,14 +2418,13 @@ export default function App() {
                             ) : currentPlan === 'pro' ? (
                               <>
                                 <div>✓ 50 stories per month</div>
-                                <div>✓ Up to 3 child profiles</div>
+                                <div>✓ Up to 2 child profiles</div>
                                 <div>✓ Story series library with cover images</div>
                                 <div>✓ Auto next episode + voice narration</div>
                               </>
                             ) : (
                               <>
-                                <div>✓ 3 free stories to try</div>
-                                <div>✓ Save up to 3 free stories</div>
+                                
                                 <div className="opacity-40">✗ Auto next episode</div>
                                 <div className="opacity-40">✗ Voice narration & multiple children</div>
                               </>
