@@ -30,9 +30,7 @@ export default function ToS() {
                 Welcome to Our Story World!
               </h2>
               <p className="mt-2 text-sm leading-7 text-white md:text-base">
-                Moonspun is a special place where children can create and
-                read amazing stories. By using our service, you and your parents
-                agree to these child-friendly terms.
+                Moonspun is a special place where parents can create and read personalized, magical stories to their children. By using our services, you as the parent or guardian agree to these child-friendly terms.
               </p>
             </div>
           </div>
@@ -45,7 +43,7 @@ export default function ToS() {
                 Using Moonspun
               </h2>
               <ul className="mt-3 space-y-2 text-sm leading-7 text-white md:text-base">
-                <li>• You need a parent or guardian&apos;s permission to use Moonspun.</li>
+                <li>• You need to be the parent or guardian of the child to use Moonspun.</li>
                 <li>• Be kind and respectful when creating stories.</li>
                 <li>• Don&apos;t share personal information in your stories.</li>
                 <li>• Have fun and be creative!</li>
@@ -61,9 +59,9 @@ export default function ToS() {
                 Parent/Guardian Agreement
               </h2>
               <ul className="mt-3 space-y-2 text-sm leading-7 text-white md:text-base">
-                <li>• Parents must create and manage accounts for children under 13.</li>
-                <li>• Parents are responsible for monitoring their child&apos;s activity.</li>
-                <li>• Parents can control privacy settings and content access.</li>
+                <li>• Parents must be the ones creating and managing accounts for their children.</li>
+                <li>• Parents are in control and responsible for the information they provide of their children.</li>
+                <li>• Parents can control privacy settings and the data of their children.</li>
                 <li>• We comply with COPPA guidelines for child safety.</li>
               </ul>
             </div>
@@ -75,7 +73,7 @@ export default function ToS() {
             <div>
               <h2 className="text-lg font-semibold text-moon">Safety First!</h2>
               <ul className="mt-3 space-y-2 text-sm leading-7 text-white md:text-base">
-                <li>• We use special technology to keep stories safe and appropriate.</li>
+                <li>• With your permission we share the data you provide with Anthropic API to keep stories safe and appropriate.</li>
                 <li>• We protect your privacy and personal information.</li>
                 <li>• We don&apos;t share your information without parent permission.</li>
                 <li>• Report anything that makes you uncomfortable.</li>
@@ -92,8 +90,7 @@ export default function ToS() {
                 If you have questions or need help, ask a parent to:
               </p>
               <ul className="mt-3 space-y-2 text-sm leading-7 text-white md:text-base">
-                <li>• Email us at support@moonspun.com</li>
-                <li>• Visit our Help Center</li>
+                <li>• Email us at support@moon-spun.com</li>
                 <li>• Read our Privacy Policy</li>
               </ul>
             </div>
@@ -103,7 +100,7 @@ export default function ToS() {
           <div className="border-t border-slate-200 pt-6 text-center">
             <p className="text-xs text-moon">Last updated: April 2026</p>
             <p className="mt-2 text-xs text-moon md:text-sm">
-              By using MoonSpun, you and your parent/guardian agree to these
+              By using MoonSpun, you as the parent/guardian agree to these
               terms.
             </p>
           </div>

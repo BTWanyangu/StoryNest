@@ -1,5 +1,6 @@
 import { Bell, Lock, Shield, Sparkles, CircleHelp } from "lucide-react";
-
+import { useState } from "react";
+import ToS from "./ToS";
 export default function Privacy() {
   return (
     <section className="min-h-screen w-full bg-card px-4 py-10 md:px-6 md:py-14 rounded-2xl border border-moon">
@@ -37,14 +38,16 @@ export default function Privacy() {
               </h2>
             </div>
             <p className="mt-3 text-sm leading-7 text-white md:text-base">
-              We only collect information that helps make your experience
+              We only collect information that helps make your child's experience
               better:
             </p>
             <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-7 text-white md:text-base">
               <li>Your nickname or username</li>
-              <li>Your reading preferences</li>
+              <li>Your child's nickname or name that you provide</li>
+              <li>Your child's interests and hobbies</li>
               <li>The stories you create and read</li>
-              <li>Your parent&apos;s email (for account management)</li>
+              <li>Your email address (for account management)</li>
+            <p className="text-sm text-white ">Please note that we will not store your child’s data indefinitely. Your child’s data will be automatically deleted every 12months.</p>
             </ul>
           </section>
 
@@ -92,29 +95,18 @@ export default function Privacy() {
               <li>
                 Email our privacy team at{" "}
                 <a
-                  href="mailto:privacy@moonspun.com"
+                  href="mailto:support@moon-spun.com"
                   className="text-indigo-500 underline underline-offset-4"
                 >
-                  privacy@moonspun.com
+                  support@moon-spun.com
                 </a>
               </li>
-              <li>
-                Visit our{" "}
-                <a
-                  href="#"
-                  className="text-indigo-500 underline underline-offset-4"
-                >
-                  Help Center
-                </a>
-              </li>
+              
               <li>
                 Read our{" "}
-                <a
-                  href="#"
-                  className="text-indigo-500 underline underline-offset-4"
-                >
+               
                   Terms of Service
-                </a>
+                
               </li>
             </ul>
           </section>

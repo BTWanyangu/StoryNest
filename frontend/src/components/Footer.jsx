@@ -1,5 +1,4 @@
-import { Heart, BookOpen, PlaySquare, Globe } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Heart, BookOpen, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import logo from "../assets/logo.png";
 
@@ -21,14 +20,18 @@ const featureHighlights = [
   },
 ];
 
-export default function Footer({setScreen}) {
-  return (
-    <footer className="relative w-full text-white overflow-hidden">
-      
-      {/* 🔥 TOP GLOW DIVIDER */}
-      <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-moon to-transparent opacity-70" />
+export default function Footer({ setScreen }) {
+  const goToPage = (pageName) => {
+    if (typeof setScreen === "function") {
+      setScreen(pageName);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
-      {/* 🌌 BACKGROUND ENHANCEMENT */}
+  return (
+    <footer className="relative w-full overflow-hidden text-white">
+      <div className="absolute left-0 top-0 h-[1px] w-full bg-gradient-to-r from-transparent via-moon to-transparent opacity-70" />
+
       <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#050816] to-[#02030a]" />
       <div className="absolute inset-0 backdrop-blur-[2px]" />
 
@@ -39,24 +42,23 @@ export default function Footer({setScreen}) {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative mx-auto w-full max-w-7xl px-6 py-20 md:px-10 lg:px-12 xl:px-16"
       >
-        {/* 🔥 MAIN SECTION */}
         <div className="flex flex-col gap-14 lg:flex-row lg:items-center lg:justify-between lg:gap-20">
-          
-          {/* LEFT: LOGO + TEXT */}
-          <div className="flex flex-col items-center text-center gap-6 md:flex-row md:text-left lg:flex-[1.2]">
+          <div className="flex flex-col items-center gap-6 text-center md:flex-row md:text-left lg:flex-[1.2]">
             <img
               src={logo}
-              alt="StoryNest Logo"
-              className="h-20 md:h-24 w-auto object-contain shrink-0"
+              alt="Moonspun Logo"
+              className="h-20 w-auto shrink-0 object-contain md:h-24"
             />
 
             <p className="max-w-xl text-base leading-8 text-slate-300 md:text-lg">
-              Apps come and go. Moonspun stays, in the memories your child carries into adulthood of the nights they were the hero. Tonight thousands of children went to bed empowered, as the hero of their own unique story. Tomorrow night, yours can too.
+              Apps come and go. Moonspun stays, in the memories your child
+              carries into adulthood of the nights they were the hero. Tonight
+              thousands of children went to bed empowered, as the hero of their
+              own unique story. Tomorrow night, yours can too.
             </p>
           </div>
 
-          {/* RIGHT: FEATURES */}
-          <div className="flex flex-col gap-6 w-full max-w-md mx-auto lg:mx-0">
+          <div className="mx-auto flex w-full max-w-md flex-col gap-6 lg:mx-0">
             {featureHighlights.map((item, index) => {
               const Icon = item.icon;
 
@@ -69,7 +71,7 @@ export default function Footer({setScreen}) {
                   viewport={{ once: true }}
                   className="flex items-start gap-4"
                 >
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-indigo-950/60 border border-white/10">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-indigo-950/60">
                     <Icon className="h-7 w-7 text-indigo-300" strokeWidth={2} />
                   </div>
 
@@ -87,26 +89,37 @@ export default function Footer({setScreen}) {
           </div>
         </div>
 
-        {/* 🔥 BOTTOM SECTION */}
         <div className="mt-14 border-t border-white/10 pt-8">
           <div className="flex flex-col gap-5 text-slate-400 md:flex-row md:items-center md:justify-between">
-            
-            <p className="text-sm md:text-base text-center md:text-left">
+            <p className="text-center text-sm md:text-left md:text-base">
               © 2026 Moonspun. All rights reserved.
             </p>
 
-            <div className="flex flex-wrap justify-center md:justify-end gap-4 md:gap-8">
-              <button onClick={() => setScreen('ToS')} className="text-sm transition hover:text-moon md:text-base">
+            <div className="flex flex-wrap justify-center gap-4 md:justify-end md:gap-8">
+              <button
+                type="button"
+                onClick={() => goToPage("ToS")}
+                className="text-sm transition hover:text-moon md:text-base"
+              >
                 Terms of Service
               </button>
-              <button onClick={() => setScreen('privacy')} className="text-sm transition hover:text-moon md:text-base">
+
+              <button
+                type="button"
+                onClick={() => goToPage("privacy")}
+                className="text-sm transition hover:text-moon md:text-base"
+              >
                 Privacy Policy
               </button>
-              <a href="#" className="text-sm transition hover:text-moon md:text-base">
-                Cookie Policy
-              </a>
-            </div>
 
+              <button
+                type="button"
+                onClick={() => goToPage("CookiePolicy")}
+                className="text-sm transition hover:text-moon md:text-base"
+              >
+                Cookie Policy
+              </button>
+            </div>
           </div>
         </div>
       </motion.div>

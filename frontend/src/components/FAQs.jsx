@@ -14,14 +14,14 @@ const faqs = [
       "The platform uses AI to create personalized stories based on the child’s name, age, interests, themes, and other details provided by the parent.",
   },
   {
-    question: "Is it safe for children?",
+    question: "Are the stories safe for children?",
     answer:
-      "Yes. The experience is designed to be family-friendly, with content controls and a focus on age-appropriate storytelling.",
+      "Yes. Once parents provide the age of their child, only age-appropriate stories will be generated. In addition, parents can read the story before reading to their children. The purpose of Moonspun is for the parent to read personalised stories to their children. Not for the child to read to themselves.",
   },
   {
     question: "What age group is it suitable for?",
     answer:
-      "It is suitable for young children and early readers, but stories can also be tailored for different age ranges depending on the platform settings.",
+      "Every Moonspun story is perfectly designed for children age 3 and above",
   },
   {
     question: "Can multiple children be connected to one parent account?",

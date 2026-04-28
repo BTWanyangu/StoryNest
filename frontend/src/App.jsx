@@ -21,6 +21,7 @@ import Review from './components/Reviews';
 
 import Privacy from './components/Privacy';
 import ToS from './components/ToS';
+import CookiePolicy from './components/CookiePolicy';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -709,7 +710,7 @@ export default function App() {
       return;
     }
 
-    if (screen === 'auth' || screen === 'privacy' || screen === 'ToS') {
+    if (screen === 'auth' || screen === 'privacy' || screen === 'ToS' || screen === 'CookiePolicy') {
       setScreen('landing');
       return;
     }
@@ -735,6 +736,7 @@ export default function App() {
       screen === 'auth' ||
       screen === 'privacy' ||
       screen === 'ToS' ||
+      screen === 'CookiePolicy' ||
       (screen === 'dashboard' && selectedTab !== 'generate')
     );
   }
@@ -1594,7 +1596,7 @@ export default function App() {
                     className="mt-14 w-full text-center"
                   >
                     <h2 className="mb-2 font-display text-3xl text-moon">Choose your plan</h2>
-                    <p className="mb-6 text-white text-bold font-bold">
+                    <p className="mb-6 text-white text-semibold font-semibold">
                       Both paid plans include a 3-day free trial. You are then charged automatically for the plan you have selected, after the free trial has ended, which you can cancel in your account at any time.
                     </p>
 
@@ -1759,6 +1761,12 @@ export default function App() {
             {screen === 'ToS' && (
               <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
                 <ToS />
+              </main>
+            )}
+
+            {screen === 'CookiePolicy' && (
+              <main className="mx-auto w-full max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
+                <CookiePolicy />
               </main>
             )}
           </>

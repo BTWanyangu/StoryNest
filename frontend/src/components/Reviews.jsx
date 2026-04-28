@@ -37,7 +37,7 @@ const reviews = [
     id: 6,
     name: "Hazel R.",
     image: Sara,
-    text: `I went down a rabbit hole at 2am reading about blue light and children's developing eyes. What I found scared me. Children's eyes cannot filter blue light the way adult eyes can. The damage to the photoreceptors in a developing retina is cumulative and irreversible. My son had been falling asleep to his tablet every night for two years. I cancelled his screen time that night and found Moonspun the next morning. I have not felt guilty about bedtime since.`,
+    text: `I went down a rabbit hole at 2am reading about blue light and children's developing eyes. What I found scared me. Children's eyes cannot filter blue light the way adult eyes can. The damage to the photoreceptors in a developing retina is cumulative and irreversible. My son had been falling asleep to his tablet every night for two years. I removed his screen time that night and found Moonspun the next morning. I have not felt guilty about bedtime since.`,
   },
   {
     id: 7,
