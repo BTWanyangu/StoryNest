@@ -1780,7 +1780,7 @@ export default function App() {
                 )}
                 <span className="text-[1.5rem] md:text-[1.6rem]">🌙</span>
               </div>
-              <div className="text-xs text-muted sm:text-sm">Hi, {firstName} 👋</div>
+              <div className="text-xs text-muted sm:text-sm">Hi, {firstName} 🌙 </div>
             </motion.nav>
 
             <div className="grid flex-1 lg:grid-cols-[240px_1fr]">
@@ -2379,7 +2379,7 @@ export default function App() {
 
                           <div className="mt-8 border-t border-coral/15 pt-6">
                             <div className="mb-2 text-sm font-extrabold text-coral">Delete <Account></Account></div>
-                            <div className="mb-4 text-sm leading-6 text-muted">
+                            <div className="mb-4 text-bold leading-6 text-white font-bold">
                               Permanently deletes your account, all child profiles, and data. This cannot be undone.
                             </div>
                             <MotionButton
