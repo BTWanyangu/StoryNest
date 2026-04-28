@@ -1994,7 +1994,7 @@ export default function App() {
                               )}
                             >
                               <div className="font-bold">Pro</div>
-                              <div className="text-sm text-muted">$8.99/mo · 50 stories · 3 children</div>
+                              <div className="text-sm text-muted">$8.99/mo · 50 stories · 2 children</div>
                             </button>
 
                             <button
@@ -2028,7 +2028,7 @@ export default function App() {
                         <MotionCard className="rounded-xl2 border border-purple2/25 bg-card p-4">
                           <div className="mb-1 font-bold text-star">Pro plan usage</div>
                           <div className="mb-2 text-sm text-muted">
-                            {storiesGenerated}/50 stories used this cycle · Up to 3 child profiles
+                            {storiesGenerated}/50 stories used this cycle · Up to 2 child profiles
                           </div>
                           <div className="mb-3 text-xs text-muted">
                             Need more? Upgrade to Pro Unlimited for unlimited stories and up to 6 children.
@@ -2444,7 +2444,7 @@ export default function App() {
                                   )}
                                 >
                                   <div className="font-bold">Pro · $8.99/mo</div>
-                                  <div className="text-xs text-muted">50 stories · 3 children · 3-day trial</div>
+                                  <div className="text-xs text-muted">50 stories · 2 children · 3-day trial</div>
                                 </button>
                                 <button
                                   onClick={() => setSelectedCheckoutPlan('pro_unlimited')}
