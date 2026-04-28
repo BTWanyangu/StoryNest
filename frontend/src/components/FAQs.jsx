@@ -202,7 +202,7 @@ export default function FAQs() {
         >
           {bottomTexts.map((text, index) => (
             <div key={text} className="flex items-center gap-8">
-              <span className="text-base md:text-lg">
+              <span className="text-white md:text-lg">
                 <TypedText text={text} delay={index * 0.35} />
               </span>
 

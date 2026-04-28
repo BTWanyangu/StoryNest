@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadStripe } from '@stripe/stripe-js';
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe-js';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -30,7 +30,7 @@ const initialProfile = {
   name: '',
   age: 7,
   interests: '',
-  avatar: AVATARS[0],
+  avatar: '👧🏽',
   consent: false,
   companion_name: '',
   companion_type: '',
@@ -39,6 +39,15 @@ const initialProfile = {
   sibling_age: '',
   sibling_relationship: '',
 };
+
+const PROFILE_AVATARS = [
+  '👶🏻', '👶🏼', '👶🏽', '👶🏾', '👶🏿',
+  '👧🏻', '👧🏼', '👧🏽', '👧🏾', '👧🏿',
+  '👦🏻', '👦🏼', '👦🏽', '👦🏾', '👦🏿',
+  '🧒🏻', '🧒🏼', '🧒🏽', '🧒🏾', '🧒🏿',
+  '👩🏻', '👩🏼', '👩🏽', '👩🏾', '👩🏿',
+  '👨🏻', '👨🏼', '👨🏽', '👨🏾', '👨🏿',
+];
 
 const LANGUAGE_OPTIONS = [
   'English',
@@ -83,8 +92,8 @@ const THEME_OPTIONS = [
 ];
 
 const VOICE_ROLE_OPTIONS = [
-  { value: 'female', label: 'Female voice' },
-  { value: 'male', label: 'Male voice' },
+  { value: 'mother', label: 'Mother voice' },
+  { value: 'father', label: 'Father voice' },
 ];
 
 const PLAN_META = {
@@ -117,28 +126,28 @@ const PLAN_META = {
 const features = [
   [
     Sparkles,
-    'Personalised',
+    'PERSONALIZED ',
     'Hearing their own name in every story sparks excitement and turns each moment into a memory you’ll never forget. Every child deserves a story that was made for no one else but them.',
   ],
   [
     BookOpen,
-    'Story library',
+    'STORY LIBRARY',
     'Save their favourite stories to a personal library, they can return to anytime.',
   ],
   [
     Users,
-    'Multi-child ready',
+    'MULTI-CHILD READY',
     'So every child feels included and is part of the magical experience. Pro supports up to 3 children, Pro Unlimited supports up to 6.',
   ],
   [
     Zap,
-    'Fast generation',
+    'FAST GENERATION',
     'New bedtime stories in 10–20 seconds. Plus a new age appropriate word for your child to learn every night to increase their vocabulary.',
   ],
   [
     Globe,
-    'BILINGUAL MODE',
-    'Bilingual children consistently outperform their peers in concentration, mental flexibility, and the ability to switch between complex tasks. Not because they are naturally smarter but because  using two languages every day builds a brain that is stronger, faster, and more resilient than one that has only ever needed one. Moonspun makes that advantage available to every child, one story at a time, each night at a time.',
+    'MULTILINGUAL MODE',
+    "The most powerful thing you can give your child's brain is a second language, which has proven to enhance concentration and mental flexibility. Moonspun makes that advantage available to every child, one story at a time, each night at a time.",
   ],
 ];
 
@@ -319,6 +328,63 @@ Tonight's word: [one word in ${language}] ([phonetic pronunciation])
 to the child, not defined clinically].`;
 }
 
+
+function getThemeCoverEmoji(theme = '') {
+  const lower = theme.toLowerCase();
+  if (lower.includes('dragon') || lower.includes('mythical')) return '🐉';
+  if (lower.includes('space')) return '🚀';
+  if (lower.includes('superhero') || lower.includes('power')) return '🦸';
+  if (lower.includes('friendship') || lower.includes('belonging')) return '🤝';
+  if (lower.includes('animal')) return '🦊';
+  if (lower.includes('underwater') || lower.includes('ocean')) return '🐳';
+  if (lower.includes('dinosaur')) return '🦕';
+  if (lower.includes('fairy')) return '🏰';
+  if (lower.includes('pirate') || lower.includes('treasure')) return '🏴‍☠️';
+  if (lower.includes('science') || lower.includes('invention')) return '🔬';
+  if (lower.includes('time travel') || lower.includes('history')) return '⏳';
+  if (lower.includes('robot') || lower.includes('technology')) return '🤖';
+  if (lower.includes('sports')) return '🏆';
+  if (lower.includes('nature') || lower.includes('environment')) return '🌿';
+  if (lower.includes('dream')) return '🌙';
+  return '✨';
+}
+
+function makeStoryCover(theme = '', title = 'Moonspun Story') {
+  const emoji = getThemeCoverEmoji(theme);
+  const safeTitle = String(title || 'Moonspun Story').replace(/[<&>]/g, '');
+  const safeTheme = String(theme || 'Bedtime Adventure').split(',')[0].replace(/[<&>]/g, '');
+  const svg = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="900" height="600" viewBox="0 0 900 600">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#19153f"/>
+        <stop offset="55%" stop-color="#2d2469"/>
+        <stop offset="100%" stop-color="#6545a8"/>
+      </linearGradient>
+      <radialGradient id="moon" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#fff3b0"/>
+        <stop offset="100%" stop-color="#f5c85b"/>
+      </radialGradient>
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#000000" flood-opacity="0.32"/>
+      </filter>
+    </defs>
+    <rect width="900" height="600" rx="44" fill="url(#g)"/>
+    <circle cx="720" cy="92" r="54" fill="url(#moon)" opacity="0.95"/>
+    <circle cx="742" cy="72" r="54" fill="#2d2469" opacity="0.88"/>
+    <g opacity="0.5" fill="#ffffff">
+      <circle cx="90" cy="96" r="3"/><circle cx="165" cy="210" r="2"/><circle cx="300" cy="86" r="2.5"/>
+      <circle cx="510" cy="140" r="2"/><circle cx="810" cy="230" r="2.5"/><circle cx="760" cy="430" r="2"/>
+      <circle cx="120" cy="470" r="2"/><circle cx="430" cy="510" r="3"/><circle cx="620" cy="320" r="2"/>
+    </g>
+    <rect x="86" y="92" width="728" height="416" rx="36" fill="rgba(255,255,255,0.055)" stroke="rgba(255,255,255,0.16)"/>
+    <text x="450" y="270" font-family="Inter, Arial, sans-serif" font-size="118" text-anchor="middle" filter="url(#shadow)">${emoji}</text>
+    <text x="450" y="356" font-family="Inter, Arial, sans-serif" font-size="38" font-weight="800" fill="#fff4c6" text-anchor="middle">${safeTitle.slice(0, 34)}</text>
+    <text x="450" y="408" font-family="Inter, Arial, sans-serif" font-size="22" fill="#d8d1ff" text-anchor="middle">${safeTheme.slice(0, 48)}</text>
+  </svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
 function parseStory(raw, profile, theme, moral, previousStories = [], language = 'English') {
   const cleaned = raw.trim();
   const labeledTitleMatch = cleaned.match(/^TITLE:\s*(.+)$/im);
@@ -353,8 +419,8 @@ function parseStory(raw, profile, theme, moral, previousStories = [], language =
     series_id: seriesId,
     episode_number: nextEpisode,
     story_language: language,
-    voice_role: localStorage.getItem('moonspun_voice_role') || 'female',
-    cover_image: `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(coverSeed)}`,
+    voice_role: localStorage.getItem('moonspun_voice_role') || 'mother',
+    cover_image: makeStoryCover(theme, title),
   };
 }
 
@@ -565,6 +631,7 @@ export default function App() {
   );
   const [currentStory, setCurrentStory] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [editingProfileId, setEditingProfileId] = useState(null);
   const [storyModalIndex, setStoryModalIndex] = useState(null);
   const [profileForm, setProfileForm] = useState(initialProfile);
   const [profileError, setProfileError] = useState('');
@@ -574,11 +641,17 @@ export default function App() {
   const [subscription, setSubscription] = useState({ plan: 'free', status: 'none' });
   const [loadingAccount, setLoadingAccount] = useState(true);
   const [speakingStoryId, setSpeakingStoryId] = useState(null);
+  const [narrationPaused, setNarrationPaused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState('pro');
   const [checkoutClientSecret, setCheckoutClientSecret] = useState('');
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
-  const [selectedVoiceRole, setSelectedVoiceRole] = useState(() => localStorage.getItem('moonspun_voice_role') || 'female');
+  const [selectedVoiceRole, setSelectedVoiceRole] = useState(() => {
+    const saved = localStorage.getItem('moonspun_voice_role');
+    return saved === 'male' || saved === 'father' ? 'father' : 'mother';
+  });
+
+  const narrationStoppedRef = useRef(false);
 
   const token = session?.access_token;
   const user = session?.user;
@@ -619,6 +692,90 @@ export default function App() {
     setToast({ message, bg });
   }
 
+  function goBack() {
+    if (checkoutModalOpen) {
+      setCheckoutModalOpen(false);
+      setCheckoutClientSecret('');
+      return;
+    }
+
+    if (profileModalOpen) {
+      closeProfileModal();
+      return;
+    }
+
+    if (storyModalIndex !== null) {
+      setStoryModalIndex(null);
+      return;
+    }
+
+    if (screen === 'auth' || screen === 'privacy' || screen === 'ToS') {
+      setScreen('landing');
+      return;
+    }
+
+    if (screen === 'dashboard' && selectedTab !== 'generate') {
+      setSelectedTab('generate');
+      return;
+    }
+
+    if (screen === 'dashboard') {
+      setScreen('landing');
+      return;
+    }
+
+    setScreen('landing');
+  }
+
+  function shouldShowBackButton() {
+    return (
+      checkoutModalOpen ||
+      profileModalOpen ||
+      storyModalIndex !== null ||
+      screen === 'auth' ||
+      screen === 'privacy' ||
+      screen === 'ToS' ||
+      (screen === 'dashboard' && selectedTab !== 'generate')
+    );
+  }
+
+  function openAddProfileModal() {
+    setEditingProfileId(null);
+    setProfileForm(initialProfile);
+    setProfileError('');
+    setConsentError('');
+    setProfileModalOpen(true);
+  }
+
+  function openEditProfileModal(profile) {
+    if (!profile) return;
+    setEditingProfileId(profile.id);
+    setProfileForm({
+      name: profile.name || '',
+      age: profile.age || 7,
+      interests: profile.interests || '',
+      avatar: profile.avatar || PROFILE_AVATARS[0],
+      consent: true,
+      companion_name: profile.companion_name || '',
+      companion_type: profile.companion_type || '',
+      companion_trait: profile.companion_trait || '',
+      sibling_name: profile.sibling_name || '',
+      sibling_age: profile.sibling_age || '',
+      sibling_relationship: profile.sibling_relationship || '',
+    });
+    setProfileError('');
+    setConsentError('');
+    setProfileModalOpen(true);
+  }
+
+  function closeProfileModal() {
+    setProfileModalOpen(false);
+    setEditingProfileId(null);
+    setProfileForm(initialProfile);
+    setProfileError('');
+    setConsentError('');
+  }
+
   function toggleTheme(theme) {
     setSelectedThemes((prev) => {
       if (prev.includes(theme)) {
@@ -630,12 +787,26 @@ export default function App() {
   }
 
   function stopSpeaking() {
+    narrationStoppedRef.current = true;
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      window.speechSynthesis.pause();
-      window.speechSynthesis.resume();
     }
     setSpeakingStoryId(null);
+    setNarrationPaused(false);
+  }
+
+  function pauseSpeaking() {
+    if ('speechSynthesis' in window && speakingStoryId && !window.speechSynthesis.paused) {
+      window.speechSynthesis.pause();
+      setNarrationPaused(true);
+    }
+  }
+
+  function resumeSpeaking() {
+    if ('speechSynthesis' in window && speakingStoryId && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      setNarrationPaused(false);
+    }
   }
 
   function getSpeechLang(language) {
@@ -678,9 +849,9 @@ export default function App() {
     if (!voices.length) return null;
 
     const roleHints =
-      voiceRole === 'male'
-        ? ['male', 'man', 'david', 'daniel', 'george', 'fred', 'alex', 'thomas', 'mark']
-        : ['female', 'woman', 'samantha', 'susan', 'victoria', 'karen', 'zira', 'anna', 'sara'];
+      voiceRole === 'father'
+        ? ['male', 'man', 'david', 'daniel', 'george', 'fred', 'alex', 'thomas', 'mark', 'james', 'arthur']
+        : ['female', 'woman', 'samantha', 'susan', 'victoria', 'karen', 'zira', 'anna', 'sara', 'joanna', 'emma'];
 
     const languageMatches = voices.filter((voice) => {
       const voiceLang = voice.lang?.toLowerCase() || '';
@@ -694,11 +865,15 @@ export default function App() {
 
     if (languageMatches.length) return languageMatches[0];
 
-    const englishFallback = voices.find((voice) => voice.lang?.toLowerCase().startsWith('en'));
-    return englishFallback || voices[0] || null;
+    const englishMatches = voices.filter((voice) => voice.lang?.toLowerCase().startsWith('en'));
+    const englishRoleMatch = englishMatches.find((voice) =>
+      roleHints.some((hint) => voice.name?.toLowerCase().includes(hint))
+    );
+
+    return englishRoleMatch || englishMatches[0] || voices[0] || null;
   }
 
-  function waitForVoices(timeout = 1500) {
+  function waitForVoices(timeout = 1800) {
     return new Promise((resolve) => {
       if (!('speechSynthesis' in window)) {
         resolve([]);
@@ -730,92 +905,88 @@ export default function App() {
   }
 
   async function speakStory(story, language = selectedLanguage) {
-  if (!isPaidPlan) {
-    showToast('Voice narration is available on paid plans.', '#ff6b6b');
-    return;
-  }
+    if (!isPaidPlan) {
+      showToast('Voice narration is available on paid plans.', '#ff6b6b');
+      return;
+    }
 
-  if (!('speechSynthesis' in window)) {
-    showToast('Voice narration is not supported in this browser.', '#ff6b6b');
-    return;
-  }
+    if (!('speechSynthesis' in window)) {
+      showToast('Voice narration is not supported in this browser.', '#ff6b6b');
+      return;
+    }
 
-  const storyId = story.id || story.title;
-  const narrationLanguage = story.story_language || language || 'English';
-  const narrationVoiceRole = story.voice_role || selectedVoiceRole;
+    const storyId = story.id || story.title;
+    const narrationLanguage = story.story_language || language || 'English';
+    const rawVoiceRole = story.voice_role || selectedVoiceRole;
+    const narrationVoiceRole = rawVoiceRole === 'male' || rawVoiceRole === 'father' ? 'father' : 'mother';
 
-  const BEDTIME_RATE = 0.70;
-  const BEDTIME_PITCH = narrationVoiceRole === 'father' ? 0.78 : 0.88;
-  const BEDTIME_VOLUME = 0.9;
-  const PARAGRAPH_PAUSE_MS = 200;
-  const TITLE_PAUSE_MS = 400;
+    const BEDTIME_RATE = 0.74;
+    const BEDTIME_PITCH = narrationVoiceRole === 'father' ? 0.82 : 1.03;
+    const BEDTIME_VOLUME = 0.92;
+    const PARAGRAPH_PAUSE_MS = 420;
+    const TITLE_PAUSE_MS = 650;
 
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const speakText = (text, bestVoice) =>
-    new Promise((resolve, reject) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-
-      utterance.lang = getSpeechLang(narrationLanguage);
-      utterance.rate = BEDTIME_RATE;
-      utterance.pitch = BEDTIME_PITCH;
-      utterance.volume = BEDTIME_VOLUME;
-
-      if (bestVoice) {
-        utterance.voice = bestVoice;
-        utterance.lang = bestVoice.lang || utterance.lang;
-      }
-
-      utterance.onend = resolve;
-
-      utterance.onerror = (event) => {
-        if (event.error === 'interrupted' || event.error === 'canceled') {
+    const speakText = (text, bestVoice) =>
+      new Promise((resolve) => {
+        if (narrationStoppedRef.current) {
           resolve();
           return;
         }
 
-        reject(event);
-      };
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = getSpeechLang(narrationLanguage);
+        utterance.rate = BEDTIME_RATE;
+        utterance.pitch = BEDTIME_PITCH;
+        utterance.volume = BEDTIME_VOLUME;
 
-      window.speechSynthesis.speak(utterance);
-    });
+        if (bestVoice) {
+          utterance.voice = bestVoice;
+          utterance.lang = bestVoice.lang || utterance.lang;
+        }
 
-  try {
-    stopSpeaking();
-    await waitForVoices();
+        utterance.onend = resolve;
+        utterance.onerror = () => resolve();
+        window.speechSynthesis.speak(utterance);
+      });
 
-    const bestVoice = pickBestVoice(narrationLanguage, narrationVoiceRole);
+    try {
+      stopSpeaking();
+      await waitForVoices();
 
-    const paragraphs = String(story.body || '')
-      .split(/\n\s*\n/)
-      .map((paragraph) => paragraph.trim())
-      .filter(Boolean);
+      narrationStoppedRef.current = false;
+      setNarrationPaused(false);
 
-    setSpeakingStoryId(storyId);
+      const bestVoice = pickBestVoice(narrationLanguage, narrationVoiceRole);
+      const paragraphs = String(story.body || '')
+        .split(/\n\s*\n/)
+        .map((paragraph) => paragraph.trim())
+        .filter(Boolean);
 
-    window.speechSynthesis.cancel();
+      setSpeakingStoryId(storyId);
+      await sleep(160);
 
-    await sleep(150);
+      await speakText(story.title, bestVoice);
+      await sleep(TITLE_PAUSE_MS);
 
-    await speakText(story.title, bestVoice);
-    await sleep(TITLE_PAUSE_MS);
-
-    for (const paragraph of paragraphs) {
-      if (window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
+      for (const paragraph of paragraphs) {
+        if (narrationStoppedRef.current) break;
+        await speakText(paragraph, bestVoice);
+        await sleep(PARAGRAPH_PAUSE_MS);
       }
 
-      await speakText(paragraph, bestVoice);
-      await sleep(PARAGRAPH_PAUSE_MS);
+      if (!narrationStoppedRef.current) {
+        setSpeakingStoryId(null);
+        setNarrationPaused(false);
+      }
+    } catch (error) {
+      console.error('Narration setup failed:', error);
+      setSpeakingStoryId(null);
+      setNarrationPaused(false);
+      showToast('Could not play narration', '#ff6b6b');
     }
-
-    setSpeakingStoryId(null);
-  } catch (error) {
-    console.error('Narration setup failed:', error);
-    setSpeakingStoryId(null);
-    showToast('Could not play narration', '#ff6b6b');
   }
-}
 
   useEffect(() => {
     localStorage.setItem('storynest_selected_language', selectedLanguage);
@@ -955,51 +1126,62 @@ export default function App() {
       setProfileError("Please enter your child's name");
       return;
     }
-    if (!profileForm.consent) {
+    if (!profileForm.consent && !editingProfileId) {
       setConsentError('Please tick the consent box');
       return;
     }
-    if (profiles.length >= maxProfiles) {
+    if (!editingProfileId && profiles.length >= maxProfiles) {
       showToast(
         isPaidPlan
           ? `Maximum of ${maxProfiles} children reached for your plan.`
-          : 'Free plan supports 1 child. Upgrade for more.',
+          : 'Please start your 3-day trial to add child profiles.',
         '#ff6b6b'
       );
       return;
     }
 
-    const { data, error } = await supabase
-      .from('children')
-      .insert({
-        user_id: user.id,
-        name: profileForm.name.trim(),
-        age: Number(profileForm.age),
-        interests: profileForm.interests.trim(),
-        avatar: profileForm.avatar,
-        companion_name: profileForm.companion_name.trim(),
-        companion_type: profileForm.companion_type.trim(),
-        companion_trait: profileForm.companion_trait.trim(),
-        sibling_name: profileForm.sibling_name.trim(),
-        sibling_age: profileForm.sibling_age ? Number(profileForm.sibling_age) : null,
-        sibling_relationship: profileForm.sibling_relationship.trim(),
-        consent_given_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
+    const payload = {
+      name: profileForm.name.trim(),
+      age: Number(profileForm.age),
+      interests: profileForm.interests.trim(),
+      avatar: profileForm.avatar,
+      companion_name: profileForm.companion_name.trim(),
+      companion_type: profileForm.companion_type.trim(),
+      companion_trait: profileForm.companion_trait.trim(),
+      sibling_name: profileForm.sibling_name.trim(),
+      sibling_age: profileForm.sibling_age ? Number(profileForm.sibling_age) : null,
+      sibling_relationship: profileForm.sibling_relationship.trim(),
+    };
+
+    const request = editingProfileId
+      ? supabase.from('children').update(payload).eq('id', editingProfileId).eq('user_id', user.id).select().single()
+      : supabase
+          .from('children')
+          .insert({
+            user_id: user.id,
+            ...payload,
+            consent_given_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+    const { data, error } = await request;
 
     if (error) {
-      showToast('Could not save profile', '#ff6b6b');
+      showToast(editingProfileId ? 'Could not update profile' : 'Could not save profile', '#ff6b6b');
       return;
     }
 
-    setProfiles((prev) => [...prev, data]);
-    setSelectedProfileId(data.id);
-    setProfileForm(initialProfile);
-    setProfileError('');
-    setConsentError('');
-    setProfileModalOpen(false);
-    showToast(`${data.name} added! Ready for tonight's story 🌙`);
+    if (editingProfileId) {
+      setProfiles((prev) => prev.map((item) => (item.id === editingProfileId ? data : item)));
+      showToast(`${data.name}'s profile updated ✨`);
+    } else {
+      setProfiles((prev) => [...prev, data]);
+      setSelectedProfileId(data.id);
+      showToast(`${data.name} added! Ready for tonight's story 🌙`);
+    }
+
+    closeProfileModal();
   }
 
   async function removeProfile(profileId) {
@@ -1059,14 +1241,18 @@ export default function App() {
       );
 
       const data = await generateStory(token, prompt);
-      const story = parseStory(
-        data.text,
-        selectedProfile,
-        selectedThemes.join(', '),
-        selectedMoral,
-        previousStories,
-        selectedLanguage
-      );
+      const story = {
+        ...parseStory(
+          data.text,
+          selectedProfile,
+          selectedThemes.join(', '),
+          selectedMoral,
+          previousStories,
+          selectedLanguage
+        ),
+        voice_role: selectedVoiceRole,
+        cover_image: makeStoryCover(selectedThemes.join(', '), selectedProfile?.name || 'Moonspun Story'),
+      };
 
       setCurrentStory(story);
 
@@ -1118,10 +1304,9 @@ export default function App() {
         series_id: currentStory.series_id || currentStory.child_id,
         episode_number: currentStory.episode_number || episodeCount + 1,
         story_language: currentStory.story_language || selectedLanguage,
-        voice_role: currentStory.voice_role || selectedVoiceRole,
+        voice_role: selectedVoiceRole || currentStory.voice_role || 'mother',
         cover_image:
-          currentStory.cover_image ||
-          `https://api.dicebear.com/7.x/adventurer/svg?seed=${encodeURIComponent(currentStory.title)}`,
+          currentStory.cover_image || makeStoryCover(currentStory.theme || selectedThemes.join(', '), currentStory.title),
       })
       .select()
       .single();
@@ -1217,9 +1402,19 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/80 px-4 py-4 backdrop-blur md:px-8"
             >
-              <MotionButton onClick={() => setScreen('landing')} className="flex items-center gap-2 font-display">
-                <img src={logo} alt="Moonspun Logo" className="h-24 md:h-24 w-auto object-contain" />
-              </MotionButton>
+              <div className="flex items-center gap-3">
+                {shouldShowBackButton() && (
+                  <MotionButton
+                    onClick={goBack}
+                    className="rounded-full border border-white/15 px-3 py-2 text-sm font-bold text-text hover:border-moon hover:text-moon"
+                  >
+                    ← Back
+                  </MotionButton>
+                )}
+                <MotionButton onClick={() => setScreen('landing')} className="flex items-center gap-2 font-display">
+                  <img src={logo} alt="Moonspun Logo" className="h-16 w-auto object-contain sm:h-20 md:h-24" />
+                </MotionButton>
+              </div>
 
               <div className="hidden items-center gap-3 sm:flex">
                 <MotionButton
@@ -1286,7 +1481,7 @@ export default function App() {
 
             {screen === 'landing' && (
               <>
-                <main className="mx-auto flex min-h-[calc(100vh-73px)] w-full max-w-7xl flex-col items-center justify-center px-4 py-12 text-center sm:px-6 lg:px-8">
+                <main className="mx-auto flex w-full max-w-7xl flex-col items-center justify-center px-4 py-10 text-center sm:px-6 md:py-14 lg:px-8">
                   <motion.span
                     initial={{ opacity: 0, scale: 0.85 }}
                     animate={{ opacity: 1, scale: 1 }}
@@ -1310,7 +1505,7 @@ export default function App() {
                     transition={{ delay: 0.1 }}
                     className="mb-8 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-[1.05rem]"
                   >
-                    86% of working parents feel they’re missing precious moments with their children - as excessive screen time quietly takes over. Moonspun helps you take those moments back, turning bedtime into magical, calming experiences you share together. Personalised stories, made in seconds, with your child at the heart of every adventure.
+                    86% of working parents feel they’re missing precious moments with their children - as excessive screen time quietly takes over. <span className="font-bold  text-white">Moonspun helps you take those moments back, turning bedtime into magical, calming experiences you share together. Personalised stories, made in seconds, with your child at the heart of every adventure.</span>
                   </motion.p>
 
                   <motion.div
@@ -1336,7 +1531,7 @@ export default function App() {
                     </MotionButton>
                   </motion.div>
 
-                  <div className="grid w-full max-w-7xl grid-cols-1 gap-5 md:grid-cols-5">
+                  <div className="grid w-full max-w-7xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
   {features.map(([Icon, title, desc], index) => (
     <MotionCard
       key={title}
@@ -1357,7 +1552,14 @@ export default function App() {
                       </MotionCard>
                     ))}
                   </div>
-
+<motion.div
+                    initial={{ opacity: 0, y: 18 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    className="mt-12 w-full overflow-hidden rounded-[28px] border border-white/10 bg-card/30 px-2 py-4 sm:px-4"
+                  >
+                    <Stats />
+                  </motion.div>
 
                   <motion.section
                     initial={{ opacity: 0, y: 24 }}
@@ -1397,7 +1599,7 @@ export default function App() {
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
-                      <MotionCard className="w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
+                      <MotionCard className="relative w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
       MOST POPULAR
     </div>
@@ -1407,7 +1609,7 @@ export default function App() {
                         </div>
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
                           <div><span className='text-moon font-bold'>✓</span> 50 stories per month</div>
-                          <div><span className='text-moon font-bold'>✓</span> Up to 2 child profiles</div>
+                          <div><span className='text-moon font-bold'>✓</span> Up to 3 child profiles</div>
                           <div><span className='text-moon font-bold'>✓</span> Multilingual mode</div>
                           <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
                           <div><span className='text-moon font-bold'>✓</span> Voice narration</div>
@@ -1441,9 +1643,7 @@ export default function App() {
                   </motion.section>
                 </main>
 
-                <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
-                  <Stats />
-                </motion.div>
+                
                 <motion.div initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }}>
                   <Review />
                 </motion.div>
@@ -1541,7 +1741,7 @@ export default function App() {
                       onClick={() => setAuthMode((prev) => (prev === 'signup' ? 'login' : 'signup'))}
                       className="text-purple3 underline"
                     >
-                      {authMode === 'signup' ? 'Sign in' : 'Sign up free'}
+                      {authMode === 'signup' ? 'Sign in' : 'Start trial'}
                     </button>
                   </div>
                 </motion.div>
@@ -1567,7 +1767,15 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               className="sticky top-0 z-30 flex items-center justify-between border-b border-white/10 bg-night/85 px-4 py-3 backdrop-blur md:px-6"
             >
-              <div className="flex items-center gap-2 font-display text-[1.2rem] text-moon md:text-[1.4rem]">
+              <div className="flex items-center gap-3 font-display text-[1.2rem] text-moon md:text-[1.4rem]">
+                {shouldShowBackButton() && (
+                  <MotionButton
+                    onClick={goBack}
+                    className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-text hover:border-moon hover:text-moon sm:text-sm"
+                  >
+                    ← Back
+                  </MotionButton>
+                )}
                 <span className="text-[1.5rem] md:text-[1.6rem]">🌙</span>
               </div>
               <div className="text-xs text-muted sm:text-sm">Hi, {firstName} 👋</div>
@@ -1611,7 +1819,7 @@ export default function App() {
                         <div className="mb-2 font-bold text-star">No children yet</div>
                         <div className="mb-4 text-sm text-muted">Add your first child profile to start generating stories.</div>
                         <MotionButton
-                          onClick={() => setProfileModalOpen(true)}
+                          onClick={openAddProfileModal}
                           className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
                         >
                           Add your first child
@@ -1660,7 +1868,7 @@ export default function App() {
 
                           {profiles.length < maxProfiles && (
                             <MotionButton
-                              onClick={() => setProfileModalOpen(true)}
+                              onClick={openAddProfileModal}
                               className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text"
                             >
                               <div className="mb-2 text-4xl">➕</div>
@@ -1740,9 +1948,7 @@ export default function App() {
                             </MotionButton>
                           ))}
                         </div>
-                        <div className="mt-2 text-xs leading-5 text-muted">
-                          We choose the closest matching voice available on the parent&apos;s device.
-                        </div>
+                        
                       </MotionCard>
 
                       <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
@@ -1927,12 +2133,20 @@ export default function App() {
                                 : '🔊 Voice narration'}
                             </MotionButton>
                             {speakingStoryId === (currentStory.id || currentStory.title) && (
-                              <MotionButton
-                                onClick={stopSpeaking}
-                                className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
-                              >
-                                ⏹ Stop
-                              </MotionButton>
+                              <>
+                                <MotionButton
+                                  onClick={narrationPaused ? resumeSpeaking : pauseSpeaking}
+                                  className="rounded-full border border-moon/25 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
+                                >
+                                  {narrationPaused ? '▶ Resume' : '⏸ Pause'}
+                                </MotionButton>
+                                <MotionButton
+                                  onClick={stopSpeaking}
+                                  className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
+                                >
+                                  ⏹ Stop
+                                </MotionButton>
+                              </>
                             )}
                           </div>
                         </motion.div>
@@ -2060,12 +2274,22 @@ export default function App() {
                           delay={index * 0.04}
                           className="relative rounded-xl2 border border-white/10 bg-card p-5 text-center"
                         >
-                          <MotionButton
-                            onClick={() => removeProfile(profile.id)}
-                            className="absolute right-3 top-3 flex h-6 w-6 items-center justify-center rounded-full bg-coral/15 text-xs text-coral"
-                          >
-                            ✕
-                          </MotionButton>
+                          <div className="absolute right-3 top-3 flex gap-2">
+                            <MotionButton
+                              onClick={() => openEditProfileModal(profile)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-moon/15 text-xs text-moon"
+                              title="Edit profile"
+                            >
+                              ✎
+                            </MotionButton>
+                            <MotionButton
+                              onClick={() => removeProfile(profile.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-full bg-coral/15 text-xs text-coral"
+                              title="Remove profile"
+                            >
+                              ✕
+                            </MotionButton>
+                          </div>
                           <div className="mb-2 text-5xl">{profile.avatar}</div>
                           <div className="text-base font-extrabold text-star">{profile.name}</div>
                           <div className="text-xs text-muted">{profile.age} years old</div>
@@ -2103,7 +2327,7 @@ export default function App() {
 
                       {profiles.length < maxProfiles && (
                         <MotionButton
-                          onClick={() => setProfileModalOpen(true)}
+                          onClick={openAddProfileModal}
                           className="rounded-xl2 border-2 border-dashed border-white/15 p-5 text-center text-muted transition hover:border-purple hover:text-text"
                         >
                           <div className="mb-2 text-4xl">➕</div>
@@ -2286,8 +2510,8 @@ export default function App() {
                 className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl2 border border-white/10 bg-card p-5 sm:p-6"
               >
                 <div className="mb-4 flex items-center justify-between">
-                  <div className="font-display text-2xl text-moon">Add child profile</div>
-                  <MotionButton onClick={() => setProfileModalOpen(false)} className="text-muted">
+                  <div className="font-display text-2xl text-moon">{editingProfileId ? 'Edit child profile' : 'Add child profile'}</div>
+                  <MotionButton onClick={closeProfileModal} className="text-muted">
                     ✕
                   </MotionButton>
                 </div>
@@ -2436,7 +2660,7 @@ export default function App() {
                     Avatar
                   </label>
                   <div className="grid grid-cols-5 gap-3">
-                    {AVATARS.map((avatar) => (
+                    {PROFILE_AVATARS.map((avatar) => (
                       <MotionButton
                         key={avatar}
                         onClick={() => setProfileForm((prev) => ({ ...prev, avatar }))}
@@ -2469,7 +2693,7 @@ export default function App() {
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
                   <MotionButton
-                    onClick={() => setProfileModalOpen(false)}
+                    onClick={closeProfileModal}
                     className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-bold text-text"
                   >
                     Cancel
@@ -2478,7 +2702,7 @@ export default function App() {
                     onClick={saveProfile}
                     className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2.5 text-sm font-bold text-white"
                   >
-                    Add child ✓
+                    {editingProfileId ? 'Save changes ✓' : 'Add child ✓'}
                   </MotionButton>
                 </div>
               </motion.div>
@@ -2550,12 +2774,20 @@ export default function App() {
                   </MotionButton>
 
                   {speakingStoryId === library[storyModalIndex].id && (
-                    <MotionButton
-                      onClick={stopSpeaking}
-                      className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
-                    >
-                      ⏹ Stop
-                    </MotionButton>
+                    <>
+                      <MotionButton
+                        onClick={narrationPaused ? resumeSpeaking : pauseSpeaking}
+                        className="rounded-full border border-moon/25 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
+                      >
+                        {narrationPaused ? '▶ Resume' : '⏸ Pause'}
+                      </MotionButton>
+                      <MotionButton
+                        onClick={stopSpeaking}
+                        className="rounded-full border border-coral/25 bg-coral/10 px-5 py-2.5 text-sm font-bold text-coral"
+                      >
+                        ⏹ Stop
+                      </MotionButton>
+                    </>
                   )}
 
                   <MotionButton

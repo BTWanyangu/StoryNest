@@ -1,4 +1,4 @@
-import { Heart, BookOpen, PlaySquare } from "lucide-react";
+import { Heart, BookOpen, PlaySquare, Globe } from "lucide-react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import logo from "../assets/logo.png";
@@ -15,9 +15,9 @@ const featureHighlights = [
     icon: BookOpen,
   },
   {
-    title: "Multilungual Support",
+    title: "Multilingual Support",
     subtitle: "Fluent before they know it",
-    icon: PlaySquare,
+    icon: Globe,
   },
 ];
 
