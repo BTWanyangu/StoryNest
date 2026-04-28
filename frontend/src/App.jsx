@@ -2378,9 +2378,9 @@ export default function App() {
                           </div>
 
                           <div className="mt-8 border-t border-coral/15 pt-6">
-                            <div className="mb-2 text-sm font-extrabold text-coral">Danger zone</div>
+                            <div className="mb-2 text-sm font-extrabold text-coral">Delete <Account></Account></div>
                             <div className="mb-4 text-sm leading-6 text-muted">
-                              Permanently deletes your account, all child profiles, and all saved stories. This cannot be undone.
+                              Permanently deletes your account, all child profiles, and data. This cannot be undone.
                             </div>
                             <MotionButton
                               onClick={handleDeleteAccount}
