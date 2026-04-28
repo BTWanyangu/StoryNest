@@ -2378,7 +2378,7 @@ export default function App() {
                           </div>
 
                           <div className="mt-8 border-t border-coral/15 pt-6">
-                            <div className="mb-2 text-sm font-extrabold text-coral">Delete <Account></Account></div>
+                            <div className="mb-2 text-sm font-extrabold text-coral">Delete Account </div>
                             <div className="mb-4 text-bold leading-6 text-white font-bold">
                               Permanently deletes your account, all child profiles, and data. This cannot be undone.
                             </div>
