@@ -1,76 +1,66 @@
 import { useRef, useState } from "react";
 import { motion, useInView } from "framer-motion";
 import { BookOpen, Pause, Play, Quote, Star } from "lucide-react";
-
+import { Sara, Sara1, Sara2, Sara3, Sara4, Laura, Laura1, Laura2, Laura3, Laura4 } from "../assets/images";
 const reviews = [
   {
     id: 1,
     name: "Laura S.",
-    image:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&auto=format&fit=crop&q=80",
+    image: Laura,
     text: `My daughter had a tough day at school on Tuesday, a falling out with her best friend. I typed what happened into Moonspun and that night her story was about a girl who found a way to mend something that felt broken. She didn't know I did it. She just said it was the best story she'd ever heard. I cried.`,
   },
   {
     id: 2,
     name: "Charlotte T.",
-    image:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&auto=format&fit=crop&q=80",
+    image: Laura1,
     text: `My son is seven. I know that in a few years he will think bedtime stories are babyish. So every single night right now matters more than I can explain. Moonspun means I never run out of stories, I never repeat one, and I never have to say 'not tonight.' I am not wasting a single night of this window.`,
   },
   {
     id: 3,
     name: "Dani K.",
-    image:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&auto=format&fit=crop&q=80",
+    image: Laura2,
     text: `I am a single mum working full time. By 7:30pm I have nothing left. I used to feel so guilty putting my daughter to bed without a proper story. Now I type three words into Moonspun and sixty seconds later she is hearing an adventure about herself that I could never have invented on my best day. It did not fix my exhaustion. It just made sure she does not feel it.`,
   },
   {
     id: 4,
     name: "Jason B.",
-    image:
-      "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=200&auto=format&fit=crop&q=80",
+    image: Laura3,
     text: `I travel for work three weeks out of four. I miss bedtime more than I miss anything else in my life. My wife sets up Moonspun before I land, puts in something I told her about our daughter's week, and by the time I call to say goodnight she has already heard a story that has a piece of me in it somehow. It is not the same as being there. But it is the closest thing I have and really appreciate.`,
   },
   {
     id: 5,
     name: "Maria L.",
-    image:
-      "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&auto=format&fit=crop&q=80",
+    image: Laura4,
     text: `My mother only speaks Spanish and my children are growing up in English. I set Moonspun to bilingual mode and now every story has both. Last week my daughter used a Spanish word at dinner that she had only ever heard in her Moonspun story. My mother cried. I cannot put a price on that.`,
   },
   {
     id: 6,
     name: "Hazel R.",
-    image:
-      "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&auto=format&fit=crop&q=80",
+    image: Sara,
     text: `I went down a rabbit hole at 2am reading about blue light and children's developing eyes. What I found scared me. Children's eyes cannot filter blue light the way adult eyes can. The damage to the photoreceptors in a developing retina is cumulative and irreversible. My son had been falling asleep to his tablet every night for two years. I cancelled his screen time that night and found Moonspun the next morning. I have not felt guilty about bedtime since.`,
   },
   {
     id: 7,
     name: "Jackie D.",
-    image:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&auto=format&fit=crop&q=80",
+    image: Sara1,
     text: `My son is four. The first time he heard his own name in a Moonspun story he went completely still and stared at me. Then he whispered - Mummy, it knows me. I have never in my life wanted to freeze a moment more than that one. We have used it every night for two months and he still gets that look. Every single time.`,
   },
   {
     id: 8,
     name: "Olivia M.",
-    image:
-      "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&auto=format&fit=crop&q=80",
+    image: Sara2,
     text: `We made every screen time mistake with our first child and watched him struggle with sleep, concentration, and anxiety for years before we connected it to his evening tablet habit. By the time our daughter came along we were not making the same mistakes. No screens after six. Moonspun every night instead. She is three, she sleeps ten hours straight, and she wakes up asking what adventure is coming tonight.`,
   },
   {
     id: 9,
     name: "Luna K.",
-    image:
-      "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200&auto=format&fit=crop&q=80",
+    image: Sara3,
     text: `My son's teacher called me in to discuss his concentration levels in class. He was bright but could not focus past the first hour of the morning. She asked about his sleep. I described our evenings, dinner, tablet, bed. We switched to Moonspun that night. His teacher commented on the change within three weeks. I cried in the car on the way home.`,
   },
   {
     id: 10,
     name: "Ruoxi Q.",
-    image:
-      "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80",
+    image: Sara4,
     text: `Our paediatrician told us at our daughter's four-year well-child check-up that the blue light from her tablet before bed was suppressing her melatonin production so significantly that her brain was not entering deep sleep until almost midnight. We cut screens at bedtime immediately and started Moonspun the same week. Within ten days she was sleeping through.`,
   },
 ];
