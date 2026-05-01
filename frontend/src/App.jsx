@@ -25,7 +25,7 @@ import CookiePolicy from './components/CookiePolicy';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
-const initialForm = { email: '', password: '', name: '', parentConsent: false };
+const initialForm = { email: '', password: '', confirmPassword: '', name: '', parentConsent: false };
 
 const initialProfile = {
   name: '',
@@ -617,6 +617,8 @@ export default function App() {
   const [authMode, setAuthMode] = useState('login');
   const [authForm, setAuthForm] = useState(initialForm);
   const [authError, setAuthError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false);
   const [session, setSession] = useState(null);
   const [userRecord, setUserRecord] = useState(null);
   const [profiles, setProfiles] = useState([]);
@@ -1005,12 +1007,37 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const isRecoveryLink =
+      searchParams.get('type') === 'recovery' ||
+      hashParams.get('type') === 'recovery' ||
+      searchParams.get('password_recovery') === 'true';
+
+    if (isRecoveryLink) {
+      setPasswordRecoveryMode(true);
+      setAuthMode('reset');
+      setScreen('auth');
+      setAuthError('');
+      setAuthNotice('Enter your new password below.');
+    }
+  }, []);
+
+  useEffect(() => {
     let ignore = false;
     supabase.auth.getSession().then(({ data }) => {
       if (!ignore) setSession(data.session ?? null);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecoveryMode(true);
+        setAuthMode('reset');
+        setScreen('auth');
+        setAuthError('');
+        setAuthNotice('Enter your new password below.');
+      }
     });
     return () => {
       ignore = true;
@@ -1025,7 +1052,14 @@ export default function App() {
         setProfiles([]);
         setLibrary([]);
         setSubscription({ plan: 'free', status: 'none' });
-        setScreen('landing');
+        if (!passwordRecoveryMode) {
+          setScreen('landing');
+        }
+        setLoadingAccount(false);
+        return;
+      }
+
+      if (passwordRecoveryMode || authMode === 'reset') {
         setLoadingAccount(false);
         return;
       }
@@ -1087,14 +1121,56 @@ export default function App() {
     }
 
     bootstrap();
-  }, [token, user?.id]);
+  }, [token, user?.id, passwordRecoveryMode, authMode]);
 
   useEffect(() => {
     return () => stopSpeaking();
   }, []);
 
   async function handleAuthSubmit() {
-    const { email, password, name, parentConsent } = authForm;
+    const { email, password, confirmPassword, name, parentConsent } = authForm;
+
+    setAuthError('');
+    setAuthNotice('');
+
+    if (authMode === 'forgot') {
+      if (!email) return setAuthError('Please enter your email address');
+      if (!email.includes('@')) return setAuthError('Please enter a valid email');
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + '?password_recovery=true',
+      });
+
+      if (error) {
+        setAuthError(error.message);
+        return;
+      }
+
+      setAuthNotice('Password reset link sent. Please check your email.');
+      return;
+    }
+
+    if (authMode === 'reset') {
+      if (!password || !confirmPassword) return setAuthError('Please enter and confirm your new password');
+      if (password.length < 6) return setAuthError('Password must be at least 6 characters');
+      if (password !== confirmPassword) return setAuthError('Passwords do not match');
+
+      const { error } = await supabase.auth.updateUser({ password });
+
+      if (error) {
+        setAuthError(error.message);
+        return;
+      }
+
+      setAuthForm(initialForm);
+      setPasswordRecoveryMode(false);
+      setAuthMode('login');
+      setAuthNotice('Password updated successfully. Please sign in with your new password.');
+      await supabase.auth.signOut();
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
     if (!email || !password) return setAuthError('Please fill in all fields');
     if (!email.includes('@')) return setAuthError('Please enter a valid email');
     if (password.length < 6) return setAuthError('Password must be at least 6 characters');
@@ -1102,7 +1178,6 @@ export default function App() {
       return setAuthError('Please confirm you are a parent or guardian');
     }
 
-    setAuthError('');
     const payload =
       authMode === 'signup'
         ? await supabase.auth.signUp({ email, password, options: { data: { name } } })
@@ -1422,6 +1497,8 @@ export default function App() {
                 <MotionButton
                   onClick={() => {
                     setAuthMode('login');
+                    setAuthError('');
+                    setAuthNotice('');
                     setScreen('auth');
                   }}
                   className="rounded-full border border-white/20 px-5 py-2 text-sm font-bold text-text transition hover:border-purple2 hover:text-purple3"
@@ -1431,6 +1508,8 @@ export default function App() {
                 <MotionButton
                   onClick={() => {
                     setAuthMode('signup');
+                    setAuthError('');
+                    setAuthNotice('');
                     setScreen('auth');
                   }}
                   className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple"
@@ -1459,7 +1538,9 @@ export default function App() {
                     <MotionButton
                       onClick={() => {
                         setAuthMode('login');
-                        setScreen('auth');
+                    setAuthError('');
+                    setAuthNotice('');
+                    setScreen('auth');
                         setMobileMenuOpen(false);
                       }}
                       className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-text"
@@ -1469,7 +1550,9 @@ export default function App() {
                     <MotionButton
                       onClick={() => {
                         setAuthMode('signup');
-                        setScreen('auth');
+                    setAuthError('');
+                    setAuthNotice('');
+                    setScreen('auth');
                         setMobileMenuOpen(false);
                       }}
                       className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
@@ -1519,7 +1602,9 @@ export default function App() {
                     <MotionButton
                       onClick={() => {
                         setAuthMode('signup');
-                        setScreen('auth');
+                    setAuthError('');
+                    setAuthNotice('');
+                    setScreen('auth');
                       }}
                       className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon"
                     >
@@ -1668,11 +1753,21 @@ export default function App() {
                   className="w-full max-w-md rounded-xl2 border border-white/10 bg-card p-6 sm:p-8"
                 >
                   <h2 className="mb-1 text-center font-display text-2xl text-moon sm:text-3xl">
-                    {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
+                    {authMode === 'signup'
+                      ? 'Create your account'
+                      : authMode === 'forgot'
+                      ? 'Reset your password'
+                      : authMode === 'reset'
+                      ? 'Create a new password'
+                      : 'Welcome back'}
                   </h2>
                   <p className="mb-7 text-center text-sm text-muted">
                     {authMode === 'signup'
                       ? 'Start your 3-day trial — card required, charged automatically after trial unless cancelled'
+                      : authMode === 'forgot'
+                      ? 'Enter your email and we will send you a secure password reset link.'
+                      : authMode === 'reset'
+                      ? 'Choose a strong new password for your Moonspun account.'
                       : 'Sign in to access your personalized stories and profiles'}
                   </p>
 
@@ -1690,31 +1785,52 @@ export default function App() {
                     </div>
                   )}
 
-                  <div className="mb-4">
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
-                      Email
-                    </label>
-                    <input
-                      value={authForm.email}
-                      onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
-                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
-                      placeholder="you@example.com"
-                    />
-                  </div>
+                  {authMode !== 'reset' && (
+                    <div className="mb-4">
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Email
+                      </label>
+                      <input
+                        value={authForm.email}
+                        onChange={(e) => setAuthForm((prev) => ({ ...prev, email: e.target.value }))}
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="you@example.com"
+                        onKeyDown={(e) => e.key === 'Enter' && authMode === 'forgot' && handleAuthSubmit()}
+                      />
+                    </div>
+                  )}
 
-                  <div className="mb-4">
-                    <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
-                      Password
-                    </label>
-                    <input
-                      type="password"
-                      value={authForm.password}
-                      onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
-                      className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
-                      placeholder="At least 6 characters"
-                      onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()}
-                    />
-                  </div>
+                  {authMode !== 'forgot' && (
+                    <div className="mb-4">
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        {authMode === 'reset' ? 'New password' : 'Password'}
+                      </label>
+                      <input
+                        type="password"
+                        value={authForm.password}
+                        onChange={(e) => setAuthForm((prev) => ({ ...prev, password: e.target.value }))}
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="At least 6 characters"
+                        onKeyDown={(e) => e.key === 'Enter' && authMode !== 'reset' && handleAuthSubmit()}
+                      />
+                    </div>
+                  )}
+
+                  {authMode === 'reset' && (
+                    <div className="mb-4">
+                      <label className="mb-2 block text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+                        Confirm new password
+                      </label>
+                      <input
+                        type="password"
+                        value={authForm.confirmPassword}
+                        onChange={(e) => setAuthForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+                        className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
+                        placeholder="Repeat your new password"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAuthSubmit()}
+                      />
+                    </div>
+                  )}
 
                   {authMode === 'signup' && (
                     <label className="mb-4 flex cursor-pointer items-start gap-3 text-sm leading-6 text-muted">
@@ -1730,23 +1846,80 @@ export default function App() {
                     </label>
                   )}
 
-                  {authError && <div className="mb-4 text-sm text-coral">{authError}</div>}
+                  {authError && <div className="mb-4 rounded-lg border border-coral/20 bg-coral/10 px-4 py-3 text-sm text-coral">{authError}</div>}
+                  {authNotice && <div className="mb-4 rounded-lg border border-moon/20 bg-moon/10 px-4 py-3 text-sm text-moon">{authNotice}</div>}
 
                   <MotionButton
                     onClick={handleAuthSubmit}
                     className="w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple"
                   >
-                    {authMode === 'signup' ? 'Create account' : 'Sign in'}
+                    {authMode === 'signup'
+                      ? 'Create account'
+                      : authMode === 'forgot'
+                      ? 'Send reset link'
+                      : authMode === 'reset'
+                      ? 'Update password'
+                      : 'Sign in'}
                   </MotionButton>
 
                   <div className="mt-4 text-center text-sm text-muted">
-                    {authMode === 'signup' ? 'Already have an account?' : `Don't have an account?`}{' '}
-                    <button
-                      onClick={() => setAuthMode((prev) => (prev === 'signup' ? 'login' : 'signup'))}
-                      className="text-purple3 underline"
-                    >
-                      {authMode === 'signup' ? 'Sign in' : 'Start trial'}
-                    </button>
+                    {authMode === 'login' && (
+                      <>
+                        <button
+                          onClick={() => {
+                            setAuthMode('forgot');
+                            setAuthError('');
+                            setAuthNotice('');
+                          }}
+                          className="text-purple3 underline"
+                        >
+                          Forgot password?
+                        </button>
+                        <span className="px-2">•</span>
+                        <button
+                          onClick={() => {
+                            setAuthMode('signup');
+                            setAuthError('');
+                            setAuthNotice('');
+                          }}
+                          className="text-purple3 underline"
+                        >
+                          Start trial
+                        </button>
+                      </>
+                    )}
+
+                    {authMode === 'signup' && (
+                      <>
+                        Already have an account?{' '}
+                        <button
+                          onClick={() => {
+                            setAuthMode('login');
+                            setAuthError('');
+                            setAuthNotice('');
+                          }}
+                          className="text-purple3 underline"
+                        >
+                          Sign in
+                        </button>
+                      </>
+                    )}
+
+                    {(authMode === 'forgot' || authMode === 'reset') && (
+                      <button
+                        onClick={() => {
+                          setPasswordRecoveryMode(false);
+                          setAuthMode('login');
+                          setAuthForm(initialForm);
+                          setAuthError('');
+                          setAuthNotice('');
+                          window.history.replaceState({}, '', window.location.pathname);
+                        }}
+                        className="text-purple3 underline"
+                      >
+                        Back to sign in
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               </main>

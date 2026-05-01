@@ -272,6 +272,38 @@ async function maybeResetUsageWindow(userRecord) {
   };
 }
 
+app.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body || {};
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    if (!String(email).includes('@')) {
+      return res.status(400).json({ error: 'Please enter a valid email address' });
+    }
+
+    const redirectTo = `${process.env.FRONTEND_URL || 'http://localhost:5173'}?password_recovery=true`;
+
+    const { error } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) throw error;
+
+    return res.json({
+      ok: true,
+      message: 'Password reset link sent. Please check your email.',
+    });
+  } catch (error) {
+    console.error('[forgot-password]', error);
+    return res.status(error.status || 500).json({
+      error: error.message || 'Could not send password reset email',
+    });
+  }
+});
+
 app.post('/generate-story', async (req, res) => {
   try {
     let { userRecord } = await getAuthContext(req);
