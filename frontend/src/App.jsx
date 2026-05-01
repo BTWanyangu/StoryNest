@@ -133,12 +133,12 @@ const features = [
   [
     BookOpen,
     'STORY LIBRARY',
-    'Save their favourite stories to a personal library, they can return to anytime.',
+    'Save their favourite stories to a personal library, you can return to anytime.',
   ],
   [
     Users,
     'MULTI-CHILD READY',
-    'So every child feels included and is part of the magical experience. Pro supports up to 2 children, Pro Unlimited supports up to 6.',
+    'So every child feels included and is part of the magical experience. Pro supports up to 2 children, Pro Unlimited supports up to 6 children.',
   ],
   [
     Zap,
@@ -147,8 +147,8 @@ const features = [
   ],
   [
     Globe,
-    'MULTILINGUAL MODE',
-    "The most powerful thing you can give your child's brain is a second language, which has proven to enhance concentration and mental flexibility. Moonspun makes that advantage available to every child, one story at a time, each night at a time.",
+    'BILINGUAL MODE',
+    "For parents who want their children to learn different languages or to retain their family heritage language.",
   ],
 ];
 
@@ -1527,42 +1527,43 @@ export default function App() {
             </motion.nav>
 
             <AnimatePresence>
-              {mobileMenuOpen && screen !== 'dashboard' && (
-                <motion.div
-                  initial={{ opacity: 0, y: -8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  className="border-b border-white/10 bg-night2 px-4 py-4 sm:hidden"
-                >
-                  <div className="flex flex-col gap-3">
-                    <MotionButton
-                      onClick={() => {
-                        setAuthMode('login');
-                    setAuthError('');
-                    setAuthNotice('');
-                    setScreen('auth');
-                        setMobileMenuOpen(false);
-                      }}
-                      className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-text"
-                    >
-                      Sign in
-                    </MotionButton>
-                    <MotionButton
-                      onClick={() => {
-                        setAuthMode('signup');
-                    setAuthError('');
-                    setAuthNotice('');
-                    setScreen('auth');
-                        setMobileMenuOpen(false);
-                      }}
-                      className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
-                    >
-                      Start trial
-                    </MotionButton>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+  {mobileMenuOpen && screen !== 'dashboard' && (
+    <motion.div
+      initial={{ opacity: 0, y: -8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      className="sticky top-[73px] z-20 border-b border-white/10 bg-night2 px-4 py-4 shadow-lg backdrop-blur sm:hidden"
+    >
+      <div className="flex flex-col gap-3">
+        <MotionButton
+          onClick={() => {
+            setAuthMode('login');
+            setAuthError('');
+            setAuthNotice('');
+            setScreen('auth');
+            setMobileMenuOpen(false);
+          }}
+          className="rounded-full border border-white/20 px-5 py-3 text-sm font-bold text-text"
+        >
+          Sign in
+        </MotionButton>
+
+        <MotionButton
+          onClick={() => {
+            setAuthMode('signup');
+            setAuthError('');
+            setAuthNotice('');
+            setScreen('auth');
+            setMobileMenuOpen(false);
+          }}
+          className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
+        >
+          Start trial
+        </MotionButton>
+      </div>
+    </motion.div>
+  )}
+</AnimatePresence>
 
             {screen === 'landing' && (
               <>
@@ -1663,7 +1664,7 @@ export default function App() {
                     </h2>
 
                     <p className="mb-5 text-base leading-8 text-text/90">
-                      74% of kids are addicted to screens before bedtime, often falling asleep to blue light that actively damages developing eyes and suppresses melatonin. They fall asleep eventually yes, but their brain doesn’t rest the way it should. It doesn’t happen overnight but it’s happening every night.
+                      74% of children are addicted to screens before bedtime, often falling asleep to blue light that actively damages developing eyes and suppresses melatonin. They fall asleep eventually yes, but their brain doesn’t rest the way it should. It doesn’t happen overnight but it’s happening every night.
                     </p>
 
                     <p className="text-base leading-8 text-text/90">
@@ -1697,7 +1698,7 @@ export default function App() {
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
                           <div><span className='text-moon font-bold'>✓</span> 50 stories per month</div>
                           <div><span className='text-moon font-bold'>✓</span> Up to 2 child profiles</div>
-                          <div><span className='text-moon font-bold'>✓</span> Multilingual mode</div>
+                          <div><span className='text-moon font-bold'>✓</span> Bilingual mode</div>
                           <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
                           <div><span className='text-moon font-bold'>✓</span> Voice narration</div>
                           <div><span className='text-moon font-bold'>✓</span> Save 50 stories to your library</div>
@@ -1717,7 +1718,7 @@ export default function App() {
                         <div className="mt-4 space-y-2 text-left text-sm text-text">
                           <div><span className='text-moon font-bold'>✓</span> Unlimited stories per month</div>
                           <div><span className='text-moon font-bold'>✓</span> Up to 6 child profiles</div>
-                          <div><span className='text-moon font-bold'>✓</span> Multilingual mode</div>
+                          <div><span className='text-moon font-bold'>✓</span> Bilingual mode</div>
                           <div><span className='text-moon font-bold'>✓</span> Story series libray</div>
                           <div><span className='text-moon font-bold'>✓</span> Auto next episodes</div>
                           <div><span className='text-moon font-bold'>✓</span> Voice narration</div>

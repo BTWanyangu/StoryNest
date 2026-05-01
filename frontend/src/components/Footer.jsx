@@ -14,7 +14,7 @@ const featureHighlights = [
     icon: BookOpen,
   },
   {
-    title: "Multilingual Support",
+    title: "Bilingual Support",
     subtitle: "Fluent before they know it",
     icon: Globe,
   },
