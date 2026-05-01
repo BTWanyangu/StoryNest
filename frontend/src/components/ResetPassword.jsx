@@ -83,6 +83,7 @@ export default function ResetPassword({ onBackToLogin }) {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
             placeholder="At least 6 characters"
+            autoComplete="new-password"
           />
         </div>
 
@@ -96,6 +97,7 @@ export default function ResetPassword({ onBackToLogin }) {
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full rounded-sm2 border border-white/10 bg-night3 px-4 py-3 text-text outline-none transition focus:border-purple2"
             placeholder="Repeat your new password"
+            autoComplete="new-password"
           />
         </div>
 

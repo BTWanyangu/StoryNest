@@ -22,6 +22,7 @@ import Review from './components/Reviews';
 import Privacy from './components/Privacy';
 import ToS from './components/ToS';
 import CookiePolicy from './components/CookiePolicy';
+import ResetPassword from './components/ResetPassword';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
 
@@ -1009,10 +1010,15 @@ export default function App() {
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const path = window.location.pathname;
+
     const isRecoveryLink =
+      path === '/reset-password' ||
       searchParams.get('type') === 'recovery' ||
       hashParams.get('type') === 'recovery' ||
-      searchParams.get('password_recovery') === 'true';
+      searchParams.get('password_recovery') === 'true' ||
+      searchParams.has('code') ||
+      hashParams.has('access_token');
 
     if (isRecoveryLink) {
       setPasswordRecoveryMode(true);
@@ -1138,7 +1144,7 @@ export default function App() {
       if (!email.includes('@')) return setAuthError('Please enter a valid email');
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin + '?password_recovery=true',
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
@@ -1180,12 +1186,24 @@ export default function App() {
 
     const payload =
       authMode === 'signup'
-        ? await supabase.auth.signUp({ email, password, options: { data: { name } } })
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: { name },
+              emailRedirectTo: window.location.origin,
+            },
+          })
         : await supabase.auth.signInWithPassword({ email, password });
 
     if (payload.error) {
       setAuthError(payload.error.message);
       return;
+    }
+
+    if (authMode === 'signup') {
+      setAuthNotice('Account created. Please check your email and verify your address before signing in.');
+      setAuthMode('login');
     }
 
     setAuthForm(initialForm);
@@ -1746,7 +1764,20 @@ export default function App() {
               </>
             )}
 
-            {screen === 'auth' && (
+            {screen === 'auth' && authMode === 'reset' && (
+              <ResetPassword
+                onBackToLogin={() => {
+                  setPasswordRecoveryMode(false);
+                  setAuthMode('login');
+                  setAuthForm(initialForm);
+                  setAuthError('');
+                  setAuthNotice('');
+                  window.history.replaceState({}, '', window.location.origin);
+                }}
+              />
+            )}
+
+            {screen === 'auth' && authMode !== 'reset' && (
               <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
                 <motion.div
                   initial={{ opacity: 0, y: 18, scale: 0.98 }}
