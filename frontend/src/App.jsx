@@ -1008,25 +1008,35 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const path = window.location.pathname;
+    const handleRecoveryRoute = async () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const code = searchParams.get('code');
 
-    const isRecoveryLink =
-      path === '/reset-password' ||
-      searchParams.get('type') === 'recovery' ||
-      hashParams.get('type') === 'recovery' ||
-      searchParams.get('password_recovery') === 'true' ||
-      searchParams.has('code') ||
-      hashParams.has('access_token');
+      const isRecoveryLink =
+        window.location.pathname === '/reset-password' ||
+        searchParams.get('type') === 'recovery' ||
+        hashParams.get('type') === 'recovery' ||
+        searchParams.get('password_recovery') === 'true';
 
-    if (isRecoveryLink) {
+      if (!isRecoveryLink) return;
+
       setPasswordRecoveryMode(true);
       setAuthMode('reset');
       setScreen('auth');
       setAuthError('');
       setAuthNotice('Enter your new password below.');
-    }
+
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        if (error) {
+          console.error('Password recovery session error:', error);
+          setAuthError(error.message || 'The reset link is invalid or has expired. Please request a new one.');
+        }
+      }
+    };
+
+    handleRecoveryRoute();
   }, []);
 
   useEffect(() => {
