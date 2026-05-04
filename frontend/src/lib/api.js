@@ -26,6 +26,9 @@ async function request(path, { method = 'GET', token, body, headers = {} } = {})
   return data;
 }
 
+// ==============================
+// STORY GENERATION
+// ==============================
 export function generateStory(token, prompt) {
   return request('/generate-story', {
     method: 'POST',
@@ -34,11 +37,18 @@ export function generateStory(token, prompt) {
   });
 }
 
+// ==============================
+// STRIPE CHECKOUT (UPDATED)
+// ==============================
 export function createCheckoutSession(token, plan) {
   return request('/create-checkout-session', {
     method: 'POST',
     token,
-    body: { plan },
+    body: {
+      plan,
+      success_url: `${window.location.origin}?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: window.location.origin,
+    },
   });
 }
 
@@ -63,6 +73,19 @@ export function syncStripeSuccess(token, sessionId) {
   });
 }
 
+// ==============================
+// PASSWORD RESET (NEW)
+// ==============================
+export function requestPasswordReset(email) {
+  return request('/forgot-password', {
+    method: 'POST',
+    body: { email },
+  });
+}
+
+// ==============================
+// ACCOUNT
+// ==============================
 export function deleteAccountApi(token) {
   return request('/delete-account', {
     method: 'DELETE',

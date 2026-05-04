@@ -498,7 +498,7 @@ function StoryParagraphs({ text }) {
     ));
 }
 
-function MotionCard({ children, className = '', delay = 0 }) {
+function MotionCard({ children, className = '', delay = 0, ...props }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 18 }}
@@ -506,6 +506,7 @@ function MotionCard({ children, className = '', delay = 0 }) {
       transition={{ duration: 0.35, delay }}
       whileHover={{ y: -4, scale: 1.01 }}
       className={className}
+      {...props}
     >
       {children}
     </motion.div>
@@ -647,6 +648,9 @@ export default function App() {
   const [narrationPaused, setNarrationPaused] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedCheckoutPlan, setSelectedCheckoutPlan] = useState('pro');
+  const [pendingCheckoutPlan, setPendingCheckoutPlan] = useState(
+    () => localStorage.getItem('moonspun_pending_checkout_plan') || ''
+  );
   const [checkoutClientSecret, setCheckoutClientSecret] = useState('');
   const [checkoutModalOpen, setCheckoutModalOpen] = useState(false);
   const [selectedVoiceRole, setSelectedVoiceRole] = useState(() => {
@@ -1007,16 +1011,24 @@ export default function App() {
   }, [toast]);
 
   useEffect(() => {
-    const handleRecoveryRoute = async () => {
+    const openResetPasswordScreen = async () => {
       const searchParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+      const path = window.location.pathname;
       const code = searchParams.get('code');
+      const searchType = searchParams.get('type');
+      const hashType = hashParams.get('type');
+      const passwordRecoveryFlag = searchParams.get('password_recovery');
+      const hasSupabaseRecoveryTokens =
+        hashParams.get('access_token') && hashParams.get('refresh_token');
 
       const isRecoveryLink =
-        window.location.pathname === '/reset-password' ||
-        searchParams.get('type') === 'recovery' ||
-        hashParams.get('type') === 'recovery' ||
-        searchParams.get('password_recovery') === 'true';
+        path === '/reset-password' ||
+        searchType === 'recovery' ||
+        hashType === 'recovery' ||
+        passwordRecoveryFlag === 'true' ||
+        Boolean(hasSupabaseRecoveryTokens);
 
       if (!isRecoveryLink) return;
 
@@ -1028,14 +1040,21 @@ export default function App() {
 
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
+
         if (error) {
           console.error('Password recovery session error:', error);
-          setAuthError(error.message || 'The reset link is invalid or has expired. Please request a new one.');
+          setAuthError(
+            error.message ||
+              'The reset link is invalid or has expired. Please request a new one.'
+          );
+          return;
         }
+
+        window.history.replaceState({}, '', '/reset-password');
       }
     };
 
-    handleRecoveryRoute();
+    openResetPasswordScreen();
   }, []);
 
   useEffect(() => {
@@ -1139,6 +1158,34 @@ export default function App() {
   }, [token, user?.id, passwordRecoveryMode, authMode]);
 
   useEffect(() => {
+    if (!token || !pendingCheckoutPlan || loadingAccount || passwordRecoveryMode || authMode === 'reset') return;
+    if (checkoutModalOpen) return;
+
+    const activePlan = subscription.plan || userRecord?.plan || 'free';
+
+    if (activePlan === 'pro' || activePlan === 'pro_unlimited') {
+      localStorage.removeItem('moonspun_pending_checkout_plan');
+      setPendingCheckoutPlan('');
+      return;
+    }
+
+    const planToOpen = pendingCheckoutPlan;
+    localStorage.removeItem('moonspun_pending_checkout_plan');
+    setPendingCheckoutPlan('');
+    setSelectedCheckoutPlan(planToOpen);
+    startCheckout(planToOpen);
+  }, [
+    token,
+    pendingCheckoutPlan,
+    loadingAccount,
+    passwordRecoveryMode,
+    authMode,
+    checkoutModalOpen,
+    subscription.plan,
+    userRecord?.plan,
+  ]);
+
+  useEffect(() => {
     return () => stopSpeaking();
   }, []);
 
@@ -1152,8 +1199,10 @@ export default function App() {
       if (!email) return setAuthError('Please enter your email address');
       if (!email.includes('@')) return setAuthError('Please enter a valid email');
 
+      const resetRedirectUrl = `${window.location.origin.replace(/\/$/, '')}/reset-password`;
+
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: resetRedirectUrl,
       });
 
       if (error) {
@@ -1200,7 +1249,7 @@ export default function App() {
             password,
             options: {
               data: { name },
-              emailRedirectTo: window.location.origin,
+              emailRedirectTo: window.location.origin.replace(/\/$/, ''),
             },
           })
         : await supabase.auth.signInWithPassword({ email, password });
@@ -1211,7 +1260,12 @@ export default function App() {
     }
 
     if (authMode === 'signup') {
-      setAuthNotice('Account created. Please check your email and verify your address before signing in.');
+      const chosenPlan = pendingCheckoutPlan || selectedCheckoutPlan;
+      setAuthNotice(
+        `Account created. Please check your email and verify your address before signing in. After signing in, your ${
+          chosenPlan === 'pro_unlimited' ? 'Pro Unlimited' : 'Pro'
+        } trial checkout will open automatically.`
+      );
       setAuthMode('login');
     }
 
@@ -1437,8 +1491,28 @@ export default function App() {
     showToast(`"${story.title}" deleted`, '#ff9898');
   }
 
+  function choosePlanFromLanding(planId) {
+    setSelectedCheckoutPlan(planId);
+    setPendingCheckoutPlan(planId);
+    localStorage.setItem('moonspun_pending_checkout_plan', planId);
+    setAuthMode('signup');
+    setAuthError('');
+    setAuthNotice(
+      `Create your account to start the ${planId === 'pro_unlimited' ? 'Pro Unlimited' : 'Pro'} 3-day trial.`
+    );
+    setScreen('auth');
+    setMobileMenuOpen(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   async function startCheckout(planId = selectedCheckoutPlan) {
+    if (!token) {
+      choosePlanFromLanding(planId);
+      return;
+    }
+
     try {
+      setSelectedCheckoutPlan(planId);
       const data = await createCheckoutSession(token, planId);
       const clientSecret = data.clientSecret || data.client_secret;
 
@@ -1714,7 +1788,15 @@ export default function App() {
                     </p>
 
                     <div className="flex flex-col items-center justify-center gap-5 lg:flex-row">
-                      <MotionCard className="relative w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
+                      <MotionCard
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => choosePlanFromLanding('pro')}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') choosePlanFromLanding('pro');
+                        }}
+                        className="relative w-full max-w-[320px] cursor-pointer rounded-xl2 border-2 border-moon bg-card p-7 text-left transition hover:border-star hover:shadow-moon"
+                      >
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-moon px-4 py-1 text-[11px] font-extrabold text-night">
       MOST POPULAR
     </div>
@@ -1734,9 +1816,26 @@ export default function App() {
                         <div className="mt-4 text-xs leading-5 text-muted">
                             Card required. You will be charged automatically after the 3-day free trial ends, which you can cancel at any time.
                         </div>
+                        <MotionButton
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            choosePlanFromLanding('pro');
+                          }}
+                          className="mt-5 w-full rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night shadow-moon"
+                        >
+                          Start Pro trial
+                        </MotionButton>
                       </MotionCard>
 
-                      <MotionCard className="relative w-full max-w-[320px] rounded-xl2 border-2 border-moon bg-card p-7">
+                      <MotionCard
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => choosePlanFromLanding('pro_unlimited')}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') choosePlanFromLanding('pro_unlimited');
+                        }}
+                        className="relative w-full max-w-[320px] cursor-pointer rounded-xl2 border-2 border-moon bg-card p-7 text-left transition hover:border-star hover:shadow-moon"
+                      >
                         
                         <div className="mb-2 text-base font-extrabold text-star">Pro Unlimited</div>
                         <div className="text-4xl font-extrabold text-moon">
@@ -1755,6 +1854,15 @@ export default function App() {
                         <div className="mt-4 text-xs leading-5 text-muted">
                           Card required. You will be charged automatically after the 3-day free trial ends, which you can cancel at any time.
                         </div>
+                        <MotionButton
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            choosePlanFromLanding('pro_unlimited');
+                          }}
+                          className="mt-5 w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-extrabold text-white shadow-purple"
+                        >
+                          Start Pro Unlimited trial
+                        </MotionButton>
                       </MotionCard>
                     </div>
                   </motion.section>
@@ -1781,7 +1889,7 @@ export default function App() {
                   setAuthForm(initialForm);
                   setAuthError('');
                   setAuthNotice('');
-                  window.history.replaceState({}, '', window.location.origin);
+                  window.history.replaceState({}, '', '/');
                 }}
               />
             )}
@@ -1804,7 +1912,7 @@ export default function App() {
                   </h2>
                   <p className="mb-7 text-center text-sm text-muted">
                     {authMode === 'signup'
-                      ? 'Start your 3-day trial — card required, charged automatically after trial unless cancelled'
+                      ? `Start your ${selectedCheckoutPlan === 'pro_unlimited' ? 'Pro Unlimited' : 'Pro'} 3-day trial — card required, charged automatically after trial unless cancelled`
                       : authMode === 'forgot'
                       ? 'Enter your email and we will send you a secure password reset link.'
                       : authMode === 'reset'
