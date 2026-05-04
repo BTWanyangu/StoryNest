@@ -1492,16 +1492,26 @@ export default function App() {
   }
 
   function choosePlanFromLanding(planId) {
-    setSelectedCheckoutPlan(planId);
-    setPendingCheckoutPlan(planId);
-    localStorage.setItem('moonspun_pending_checkout_plan', planId);
-    setAuthMode('signup');
+    const cleanPlanId = planId === 'pro_unlimited' ? 'pro_unlimited' : 'pro';
+
+    setSelectedCheckoutPlan(cleanPlanId);
+    setPendingCheckoutPlan(cleanPlanId);
+    localStorage.setItem('moonspun_pending_checkout_plan', cleanPlanId);
+
     setAuthError('');
     setAuthNotice(
-      `Create your account to start the ${planId === 'pro_unlimited' ? 'Pro Unlimited' : 'Pro'} 3-day trial.`
+      `Create your account to start the ${cleanPlanId === 'pro_unlimited' ? 'Pro Unlimited' : 'Pro'} 3-day trial.`
     );
-    setScreen('auth');
+
     setMobileMenuOpen(false);
+
+    if (token) {
+      startCheckout(cleanPlanId);
+      return;
+    }
+
+    setAuthMode('signup');
+    setScreen('auth');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1607,12 +1617,7 @@ export default function App() {
                   Sign in
                 </MotionButton>
                 <MotionButton
-                  onClick={() => {
-                    setAuthMode('signup');
-                    setAuthError('');
-                    setAuthNotice('');
-                    setScreen('auth');
-                  }}
+                  onClick={() => choosePlanFromLanding('pro')}
                   className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-2 text-sm font-bold text-white shadow-purple"
                 >
                   Start trial
@@ -1650,13 +1655,7 @@ export default function App() {
         </MotionButton>
 
         <MotionButton
-          onClick={() => {
-            setAuthMode('signup');
-            setAuthError('');
-            setAuthNotice('');
-            setScreen('auth');
-            setMobileMenuOpen(false);
-          }}
+          onClick={() => choosePlanFromLanding('pro')}
           className="rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-bold text-white"
         >
           Start trial
@@ -1702,12 +1701,7 @@ export default function App() {
                     className="mb-12 flex w-full flex-col justify-center gap-4 sm:w-auto sm:flex-row"
                   >
                     <MotionButton
-                      onClick={() => {
-                        setAuthMode('signup');
-                    setAuthError('');
-                    setAuthNotice('');
-                    setScreen('auth');
-                      }}
+                      onClick={() => choosePlanFromLanding('pro')}
                       className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon"
                     >
                       Start 3-day trial
@@ -1999,6 +1993,7 @@ export default function App() {
                   {authNotice && <div className="mb-4 rounded-lg border border-moon/20 bg-moon/10 px-4 py-3 text-sm text-moon">{authNotice}</div>}
 
                   <MotionButton
+                    type="button"
                     onClick={handleAuthSubmit}
                     className="w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple"
                   >
@@ -2015,6 +2010,7 @@ export default function App() {
                     {authMode === 'login' && (
                       <>
                         <button
+                          type="button"
                           onClick={() => {
                             setAuthMode('forgot');
                             setAuthError('');
@@ -2026,6 +2022,7 @@ export default function App() {
                         </button>
                         <span className="px-2">•</span>
                         <button
+                          type="button"
                           onClick={() => {
                             setAuthMode('signup');
                             setAuthError('');
@@ -2042,6 +2039,7 @@ export default function App() {
                       <>
                         Already have an account?{' '}
                         <button
+                          type="button"
                           onClick={() => {
                             setAuthMode('login');
                             setAuthError('');
