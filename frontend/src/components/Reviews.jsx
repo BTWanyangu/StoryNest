@@ -19,7 +19,7 @@ const reviews = [
     id: 3,
     name: "Dani K.",
     image: Laura2,
-    text: `I am a single mum working full time. By 7:30pm I have nothing left. I used to feel so guilty putting my daughter to bed without a proper story. Now I type three words into Moonspun and sixty seconds later she is hearing an adventure about herself that I could never have invented on my best day. It did not fix my exhaustion. It just made sure she does not feel it.`,
+    text: `I'm a single mum working full time. By 7:30pm I have nothing left. I used to feel so guilty putting my daughter to bed without a proper story. Now I type three words into Moonspun and 20 seconds later she is hearing an adventure about herself that I could never have invented on my best day. It didn't fix my exhaustion. It just made sure she does not feel it.`,
   },
   {
     id: 4,

@@ -261,8 +261,8 @@ export function AppProvider({ children }) {
       Spanish: 'es-ES',
       French: 'fr-FR',
       German: 'de-DE',
-      'Mandarin (China)': 'zh-CN',
-      'Tagalog (Filipino)': 'fil-PH',
+      'Mandarin': 'zh-CN',
+      'Tagalog': 'fil-PH',
       Vietnamese: 'vi-VN',
       Arabic: 'ar-SA',
       Korean: 'ko-KR',
@@ -920,7 +920,7 @@ export function AppProvider({ children }) {
     if (!selectedProfile || !token) return;
 
     if (!isPaidPlan) {
-      showToast('Please start your 3-day trial to generate stories.', '#ff6b6b');
+      showToast('Please go to your account to start your 3-day trial.', '#ff6b6b');
       return;
     }
 

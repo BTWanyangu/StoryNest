@@ -73,8 +73,7 @@ export default function AccountPage() {
                 Delete Account
               </div>
               <div className="mb-4 font-bold leading-6 text-white">
-                Permanently deletes your account, child profiles, and
-                data.
+                Permanently deletes your account, child profiles, and all data.
               </div>
 
               <MotionButton

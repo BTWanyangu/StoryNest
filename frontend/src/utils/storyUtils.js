@@ -30,7 +30,7 @@ export const VOICE_ROLE_OPTIONS = [
 ];
 
 export const PLAN_META = {
-  free: { id: 'free', label: 'Free', displayPrice: '$0', stories: 3, children: 1, isPaid: false },
+  free: { id: 'free', label: '', displayPrice: '', stories: 0, children: 0, isPaid: false },
   pro: { id: 'pro', label: 'Pro', displayPrice: '$8.99', stories: 50, children: 2, isPaid: true },
   pro_unlimited: { id: 'pro_unlimited', label: 'Pro Unlimited', displayPrice: '$14.99', stories: Infinity, children: 6, isPaid: true },
 };
