@@ -1,3 +1,5 @@
+// src/pages/LandingPage.jsx
+
 import { motion } from 'framer-motion';
 import { BookOpen, Globe, Sparkles, Users, Zap } from 'lucide-react';
 import FAQs from '../components/FAQs';
@@ -11,27 +13,27 @@ const features = [
   [
     Sparkles,
     'PERSONALIZED',
-    'Hearing their own name in every story turns bedtime into a memory made just for them.',
+    'Hearing their own name in every story sparks excitement and turns each moment into a memory you’ll never forget. Every child deserves a story that was made for no one else but them.',
   ],
   [
     BookOpen,
     'STORY LIBRARY',
-    'Save favourite stories to a personal library you can return to anytime.',
+    'Save their favourite stories to a personal library, you can return to anytime.',
   ],
   [
     Users,
     'MULTI-CHILD READY',
-    'Pro supports up to 2 children. Pro Unlimited supports up to 6 children.',
+    'So every child feels included and is part of the magical experience. Pro supports up to 2 children, Pro Unlimited supports up to 6 children.',
   ],
   [
     Zap,
     'FAST GENERATION',
-    'New bedtime stories in seconds, with an age-appropriate word to learn every night.',
+    'New bedtime stories in 10–20 seconds. Plus a new age appropriate word for your child to learn every night to increase their vocabulary.',
   ],
   [
     Globe,
     'BILINGUAL MODE',
-    'Create stories in different languages for learning and family heritage.',
+    'For parents who want their children to learn different languages or to retain their family heritage language.',
   ],
 ];
 
@@ -64,13 +66,22 @@ export default function LandingPage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-8 max-w-2xl text-sm leading-7 text-muted sm:text-base sm:leading-8 md:text-[1.05rem]"
         >
-          Moonspun helps parents replace screen time with calming,
-          personalised bedtime stories made in seconds, with your child
-          at the heart of every adventure.
+          86% of working parents feel they’re missing precious moments with
+          their children - as excessive screen time quietly takes over.{' '}
+          <span className="font-bold text-white">
+            Moonspun helps you take those moments back, turning bedtime into
+            magical, calming experiences you share together. Personalised
+            stories, made in seconds, with your child at the heart of every
+            adventure.
+          </span>
         </motion.p>
 
         {/* CTA */}
-        <div className="mb-12 flex w-full flex-col justify-center gap-4 sm:w-auto sm:flex-row">
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-12 flex w-full flex-col justify-center gap-4 sm:w-auto sm:flex-row"
+        >
           <MotionButton
             onClick={() => choosePlanFromLanding('pro')}
             className="rounded-full bg-gradient-to-br from-moon2 to-moon px-8 py-4 text-base font-extrabold text-night shadow-moon"
@@ -88,7 +99,7 @@ export default function LandingPage() {
           >
             See pricing
           </MotionButton>
-        </div>
+        </motion.div>
 
         {/* Features */}
         <div className="grid w-full max-w-7xl grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -96,11 +107,14 @@ export default function LandingPage() {
             <MotionCard
               key={title}
               delay={0.06 * index}
-              className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-4 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)]"
+              className="group relative overflow-hidden rounded-[22px] border border-white/12 bg-[linear-gradient(180deg,rgba(36,34,82,0.96)_0%,rgba(24,22,60,0.96)_100%)] px-4 py-7 text-center shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition duration-300 hover:-translate-y-1 hover:border-[#f5c85b]/45 hover:shadow-[0_18px_40px_rgba(11,10,40,0.42)]"
             >
+              <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-70" />
+              <div className="pointer-events-none absolute -top-10 left-1/2 h-24 w-24 -translate-x-1/2 rounded-full bg-[#f5c85b]/10 opacity-0 blur-2xl transition duration-300 group-hover:opacity-100" />
+
               <div className="mb-5 flex justify-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-                  <Icon className="h-6 w-6 text-[#f5c85b]" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-inner shadow-white/5 transition duration-300 group-hover:scale-105 group-hover:border-[#f5c85b]/30 group-hover:bg-[#f5c85b]/[0.08]">
+                  <Icon className="h-6 w-6 text-[#f5c85b]" strokeWidth={2.1} />
                 </div>
               </div>
 
@@ -108,9 +122,7 @@ export default function LandingPage() {
                 {title}
               </h3>
 
-              <p className="text-sm leading-6 text-slate-300">
-                {desc}
-              </p>
+              <p className="text-sm leading-6 text-slate-300">{desc}</p>
             </MotionCard>
           ))}
         </div>
@@ -125,118 +137,208 @@ export default function LandingPage() {
           <Stats />
         </motion.div>
 
+        {/* Better bedtime section */}
+        <motion.section
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-14 w-full max-w-5xl rounded-[28px] border border-white/12 bg-card/80 px-6 py-8 text-left shadow-[0_20px_60px_rgba(0,0,0,0.28)] sm:px-8 md:px-10"
+        >
+          <div className="mb-4 inline-flex rounded-full border border-moon/25 bg-moon/10 px-4 py-2 text-xs font-extrabold uppercase tracking-[0.12em] text-moon">
+            Better bedtime starts tonight
+          </div>
+
+          <h2 className="mb-5 font-display text-2xl leading-tight text-moon sm:text-3xl md:text-4xl">
+            Join thousands of parents who have already made the switch.
+          </h2>
+
+          <p className="mb-5 text-base leading-8 text-text/90">
+            74% of children are addicted to screens before bedtime, often
+            falling asleep to blue light that actively damages developing eyes
+            and suppresses melatonin. They fall asleep eventually yes, but
+            their brain doesn’t rest the way it should. It doesn’t happen
+            overnight but it’s happening every night.
+          </p>
+
+          <p className="text-base leading-8 text-text/90">
+            Moonspun was created to address this globally increasing health
+            concern in young developing children, by replacing screen time
+            before bedtime with the one thing your child needs the most, your
+            voice reading to them. Replace a screen with a deeper bond with your
+            child tonight.
+          </p>
+        </motion.section>
+
         {/* Pricing */}
-        {/* Pricing */}
-<section id="pricing" className="mt-14 w-full text-center">
-  <h2 className="mb-2 font-display text-3xl text-moon">
-    Choose your plan
-  </h2>
+        <motion.section
+          id="pricing"
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="mt-14 w-full text-center"
+        >
+          <h2 className="mb-2 font-display text-3xl text-moon">
+            Choose your plan
+          </h2>
 
-  <p className="mb-8 text-white font-semibold">
-    Both paid plans include a 3-day free trial. You are charged
-    automatically after the trial unless you cancel.
-  </p>
+          <p className="mb-8 font-semibold text-white">
+            Both paid plans include a 3-day free trial. You are then charged automatically for the plan you have selected, after the free trial has ended, which you can cancel in your account at any time.
+          </p>
 
-  <div className="flex flex-col items-center justify-center gap-6 lg:flex-row">
-    {/* PRO */}
-    <div
-      onClick={() => choosePlanFromLanding('pro')}
-      className="relative w-full max-w-[360px] cursor-pointer rounded-[22px] border-2 border-[#f5c85b] bg-[#1f2147] p-8 text-left"
-    >
-      {/* Badge */}
-      <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-[#f5c85b] px-4 py-1 text-xs font-extrabold text-black">
-        MOST POPULAR
-      </div>
+          <div className="flex flex-col items-center justify-center gap-6 lg:flex-row">
+            {/* Pro */}
+            <MotionCard
+              role="button"
+              tabIndex={0}
+              onClick={() => choosePlanFromLanding('pro')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  choosePlanFromLanding('pro');
+                }
+              }}
+              className="relative w-full max-w-[360px] cursor-pointer rounded-[22px] border-2 border-[#f5c85b] bg-[#1f2147] p-8 text-left transition hover:border-star hover:shadow-moon"
+            >
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 rounded-full bg-[#f5c85b] px-4 py-1 text-xs font-extrabold text-black">
+                MOST POPULAR
+              </div>
 
-      <div className="mb-3 text-lg font-bold text-white">Pro</div>
+              <div className="mb-3 text-lg font-bold text-white">Pro</div>
 
-      <div className="mb-6 text-4xl font-extrabold text-[#f5c85b]">
-        $8.99
-        <span className="ml-1 text-sm font-normal text-gray-300">
-          /month
-        </span>
-      </div>
+              <div className="mb-6 text-4xl font-extrabold text-[#f5c85b]">
+                $8.99
+                <span className="ml-1 text-sm font-normal text-gray-300">
+                  /month
+                </span>
+              </div>
 
-      <div className="space-y-3 text-sm text-gray-200">
-        <div>✓ 50 stories per month</div>
-        <div>✓ Up to 2 child profiles</div>
-        <div>✓ Bilingual mode</div>
-        <div>✓ Auto next episodes</div>
-        <div>✓ Voice narration</div>
-        <div>✓ Save 50 stories to your library</div>
-        <div>✓ 3-day free trial</div>
-      </div>
+              <div className="space-y-3 text-sm text-gray-200">
+                <div>
+                  <span className="font-bold text-moon">✓</span> 50 stories per
+                  month
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Up to 2 child
+                  profiles
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Bilingual mode
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Auto next
+                  episodes
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Voice narration
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Save 50 stories
+                  to your library
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> 3-day free
+                  trial
+                </div>
+              </div>
 
-      <p className="mt-6 text-xs text-gray-400 leading-5">
-        Card required. You will be charged automatically after the
-        3-day free trial ends, which you can cancel at any time.
-      </p>
+              <p className="mt-6 text-xs leading-5 text-gray-400">
+                Card required. You will be charged automatically after the 3-day
+                free trial ends, which you can cancel at any time.
+              </p>
 
-      <MotionButton
-        onClick={(e) => {
-          e.stopPropagation();
-          choosePlanFromLanding('pro');
-        }}
-        className="mt-6 w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-extrabold text-white"
-      >
-        Start trial
-      </MotionButton>
-    </div>
+              <MotionButton
+                onClick={(event) => {
+                  event.stopPropagation();
+                  choosePlanFromLanding('pro');
+                }}
+                className="mt-6 w-full rounded-full bg-gradient-to-br from-moon2 to-moon px-5 py-3 text-sm font-extrabold text-night shadow-moon"
+              >
+                Start Pro trial
+              </MotionButton>
+            </MotionCard>
 
-    {/* PRO UNLIMITED */}
-    <div
-      onClick={() => choosePlanFromLanding('pro_unlimited')}
-      className="relative w-full max-w-[360px] cursor-pointer rounded-[22px] border-2 border-[#f5c85b] bg-[#1f2147] p-8 text-left"
-    >
-      <div className="mb-3 text-lg font-bold text-white">
-        Pro Unlimited
-      </div>
+            {/* Pro Unlimited */}
+            <MotionCard
+              role="button"
+              tabIndex={0}
+              onClick={() => choosePlanFromLanding('pro_unlimited')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  choosePlanFromLanding('pro_unlimited');
+                }
+              }}
+              className="relative w-full max-w-[360px] cursor-pointer rounded-[22px] border-2 border-[#f5c85b] bg-[#1f2147] p-8 text-left transition hover:border-star hover:shadow-moon"
+            >
+              <div className="mb-3 text-lg font-bold text-white">
+                Pro Unlimited
+              </div>
 
-      <div className="mb-6 text-4xl font-extrabold text-[#f5c85b]">
-        $14.99
-        <span className="ml-1 text-sm font-normal text-gray-300">
-          /month
-        </span>
-      </div>
+              <div className="mb-6 text-4xl font-extrabold text-[#f5c85b]">
+                $14.99
+                <span className="ml-1 text-sm font-normal text-gray-300">
+                  /month
+                </span>
+              </div>
 
-      <div className="space-y-3 text-sm text-gray-200">
-        <div>✓ Unlimited stories per month</div>
-        <div>✓ Up to 6 child profiles</div>
-        <div>✓ Bilingual mode</div>
-        <div>✓ Story series library</div>
-        <div>✓ Auto next episodes</div>
-        <div>✓ Voice narration</div>
-        <div>✓ Save unlimited stories to your library</div>
-        <div>✓ 3-day free trial</div>
-      </div>
+              <div className="space-y-3 text-sm text-gray-200">
+                <div>
+                  <span className="font-bold text-moon">✓</span> Unlimited
+                  stories per month
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Up to 6 child
+                  profiles
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Bilingual mode
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Story series
+                  library
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Auto next
+                  episodes
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Voice narration
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> Save unlimited
+                  stories to your library
+                </div>
+                <div>
+                  <span className="font-bold text-moon">✓</span> 3-day free
+                  trial
+                </div>
+              </div>
 
-      <p className="mt-6 text-xs text-gray-400 leading-5">
-        Card required. You will be charged automatically after the
-        3-day free trial ends, which you can cancel at any time.
-      </p>
+              <p className="mt-6 text-xs leading-5 text-gray-400">
+                Card required. You will be charged automatically after the 3-day
+                free trial ends, which you can cancel at any time.
+              </p>
 
-      <MotionButton
-        onClick={(e) => {
-          e.stopPropagation();
-          choosePlanFromLanding('pro_unlimited');
-        }}
-        className="mt-6 w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-extrabold text-white"
-      >
-        Start trial
-      </MotionButton>
-    </div>
-  </div>
-</section>
+              <MotionButton
+                onClick={(event) => {
+                  event.stopPropagation();
+                  choosePlanFromLanding('pro_unlimited');
+                }}
+                className="mt-6 w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-sm font-extrabold text-white shadow-purple"
+              >
+                Start Pro Unlimited trial
+              </MotionButton>
+            </MotionCard>
+          </div>
+        </motion.section>
       </main>
 
       <Review />
       <FAQs />
+
       <Footer
         setScreen={(screen) => {
-          if (screen === 'privacy') location.href = '/privacy';
-          if (screen === 'ToS') location.href = '/terms';
-          if (screen === 'CookiePolicy')
-            location.href = '/cookies';
+          if (screen === 'privacy') window.location.href = '/privacy';
+          if (screen === 'ToS') window.location.href = '/terms';
+          if (screen === 'CookiePolicy') window.location.href = '/cookies';
         }}
       />
     </>
