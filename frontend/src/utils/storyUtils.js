@@ -69,7 +69,7 @@ export function makeStoryCover(theme = '', title = 'Moonspun Story') {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export function parseStory(raw, profile, theme, moral, previousStories = [], language = 'English', selectedVoiceRole = 'mother') {
+export function parseStory(raw, profile, theme, moral, previousStories = [], language = 'English', selectedVoiceRole = 'female') {
   const cleaned = raw.trim();
   const labeledTitleMatch = cleaned.match(/^TITLE:\s*(.+)$/im);
   let title = `${profile.name}'s Moonspun Adventure`;
