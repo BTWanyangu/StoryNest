@@ -11,6 +11,23 @@ import {
 export default function GeneratePage() {
   const app = useApp();
 
+  const selectedMorals = Array.isArray(app.selectedMoral)
+    ? app.selectedMoral
+    : app.selectedMoral
+      ? [app.selectedMoral]
+      : [];
+
+  const toggleMoral = (moral) => {
+    if (selectedMorals.includes(moral)) {
+      app.setSelectedMoral(
+        selectedMorals.filter((item) => item !== moral)
+      );
+      return;
+    }
+
+    app.setSelectedMoral([...selectedMorals, moral]);
+  };
+
   const currentStoryNarrationId = app.currentStory
     ? app.currentStory.id || app.currentStory.title
     : null;
@@ -169,16 +186,42 @@ export default function GeneratePage() {
           onChange={app.setSelectedLength}
         />
 
-        <OptionGroup
-          title="Optional moral direction"
-          options={app.MORALS}
-          value={app.selectedMoral}
-          onChange={(value) =>
-            app.setSelectedMoral(
-              value === app.selectedMoral ? '' : value
-            )
-          }
-        />
+        {/* Multiple morals */}
+        <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">
+          <div className="mb-2 text-xs font-extrabold uppercase tracking-[0.06em] text-purple3">
+            Optional moral direction
+          </div>
+
+          
+
+          <div className="flex flex-wrap gap-3">
+            {app.MORALS.map((moral) => {
+              const selected = selectedMorals.includes(moral);
+
+              return (
+                <MotionButton
+                  key={moral}
+                  onClick={() => toggleMoral(moral)}
+                  className={classNames(
+                    'rounded-full border px-4 py-2 text-sm font-bold transition',
+                    selected
+                      ? 'border-moon bg-moon/10 text-moon'
+                      : 'border-white/10 bg-night3 text-text hover:border-purple2 hover:text-purple3'
+                  )}
+                >
+                  {selected ? '✓ ' : ''}
+                  {moral}
+                </MotionButton>
+              );
+            })}
+          </div>
+
+          {selectedMorals.length > 0 && (
+            <div className="mt-3 text-xs text-muted">
+              Selected: {selectedMorals.join(', ')}
+            </div>
+          )}
+        </MotionCard>
 
         {/* Language */}
         <MotionCard className="rounded-xl2 border border-white/10 bg-card/70 p-4">

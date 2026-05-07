@@ -79,7 +79,7 @@ export function AppProvider({ children }) {
   const [selectedProfileId, setSelectedProfileId] = useState(null);
   const [selectedThemes, setSelectedThemes] = useState([THEME_OPTIONS[0]]);
   const [selectedLength, setSelectedLength] = useState(LENGTHS[0]);
-  const [selectedMoral, setSelectedMoral] = useState('');
+  const [selectedMoral, setSelectedMoral] = useState([]);
   const [wish, setWish] = useState('');
   const [selectedLanguage, setSelectedLanguage] = useState(
     () => localStorage.getItem('storynest_selected_language') || 'English'

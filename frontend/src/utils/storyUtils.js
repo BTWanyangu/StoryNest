@@ -69,6 +69,15 @@ export function makeStoryCover(theme = '', title = 'Moonspun Story') {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+
+function normalizeMoralDirection(moral) {
+  if (Array.isArray(moral)) {
+    return moral.filter(Boolean).join(', ');
+  }
+
+  return moral || '';
+}
+
 export function parseStory(raw, profile, theme, moral, previousStories = [], language = 'English', selectedVoiceRole = 'female') {
   const cleaned = raw.trim();
   const labeledTitleMatch = cleaned.match(/^TITLE:\s*(.+)$/im);
@@ -83,7 +92,7 @@ export function parseStory(raw, profile, theme, moral, previousStories = [], lan
   }
   const nextEpisode = previousStories.length + 1;
   const seriesId = profile.child_series_id || profile.id;
-  return { title, body, child_name: profile.name, child_avatar: profile.avatar, child_id: profile.id, theme, moral: moral || null, created_at: new Date().toISOString(), series_id: seriesId, episode_number: nextEpisode, story_language: language, voice_role: selectedVoiceRole, cover_image: makeStoryCover(theme, title) };
+  return { title, body, child_name: profile.name, child_avatar: profile.avatar, child_id: profile.id, theme, moral: normalizeMoralDirection(moral) || null, created_at: new Date().toISOString(), series_id: seriesId, episode_number: nextEpisode, story_language: language, voice_role: selectedVoiceRole, cover_image: makeStoryCover(theme, title) };
 }
 
 export function buildPrompt(
@@ -96,6 +105,8 @@ export function buildPrompt(
   autoMode = false,
   language = 'English'
 ) {
+  const moralDirection = normalizeMoralDirection(moral);
+
   const siblingBlock = profile.sibling_name
     ? `
 SIBLING IN THE STORY: ${profile.sibling_name}, aged ${
@@ -275,13 +286,13 @@ ${companionBlock}
 ${todayMomentBlock}
 
 ${
-  moral
+  moralDirection
     ? `
-SOFT MORAL DIRECTION:
+SOFT MORAL DIRECTIONS:
 The emotional undercurrent may gently reward qualities related to:
-${moral}
+${moralDirection}
 
-Do NOT state the moral explicitly.
+Do NOT state the morals explicitly.
 `
     : ''
 }
