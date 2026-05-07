@@ -129,6 +129,8 @@ export function AppProvider({ children }) {
   const narrationLanguageRef = useRef('English');
   const narrationVoiceRoleRef = useRef('female');
   const narrationEndTimerRef = useRef(null);
+  const narrationCurrentStartCharRef = useRef(0);
+  const narrationCurrentLastCharRef = useRef(0);
 
   const token = session?.access_token;
   const user = session?.user;
@@ -289,6 +291,9 @@ export function AppProvider({ children }) {
       return;
     }
 
+    narrationCurrentStartCharRef.current = startCharIndex;
+    narrationCurrentLastCharRef.current = startCharIndex;
+
     const utterance = buildNarrationUtterance(textToSpeak);
 
     utterance.onboundary = (event) => {
@@ -301,7 +306,10 @@ export function AppProvider({ children }) {
       }
 
       if (typeof event.charIndex === 'number' && event.charIndex >= 0) {
-        narrationCharIndexRef.current = startCharIndex + event.charIndex;
+        const latestCharIndex = startCharIndex + event.charIndex;
+
+        narrationCharIndexRef.current = latestCharIndex;
+        narrationCurrentLastCharRef.current = latestCharIndex;
       }
     };
 
@@ -316,6 +324,8 @@ export function AppProvider({ children }) {
 
       narrationChunkIndexRef.current += 1;
       narrationCharIndexRef.current = 0;
+      narrationCurrentStartCharRef.current = 0;
+      narrationCurrentLastCharRef.current = 0;
 
       const nextDelay = chunkIndex === 0 ? 650 : 420;
 
@@ -335,6 +345,8 @@ export function AppProvider({ children }) {
 
       narrationChunkIndexRef.current += 1;
       narrationCharIndexRef.current = 0;
+      narrationCurrentStartCharRef.current = 0;
+      narrationCurrentLastCharRef.current = 0;
 
       narrationEndTimerRef.current = window.setTimeout(() => {
         speakCurrentNarrationChunk(runId);
@@ -358,6 +370,8 @@ export function AppProvider({ children }) {
     narrationVoiceRef.current = null;
     narrationLanguageRef.current = 'English';
     narrationVoiceRoleRef.current = 'female';
+    narrationCurrentStartCharRef.current = 0;
+    narrationCurrentLastCharRef.current = 0;
 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -372,6 +386,14 @@ export function AppProvider({ children }) {
 
     narrationPausedRef.current = true;
     narrationStoppedRef.current = false;
+
+    /**
+     * Commit the latest known position before cancelling.
+     * This prevents Continue from jumping back to an older pause point.
+     */
+    if (narrationCurrentLastCharRef.current > narrationCharIndexRef.current) {
+      narrationCharIndexRef.current = narrationCurrentLastCharRef.current;
+    }
 
     clearNarrationTimer();
 
@@ -563,6 +585,8 @@ export function AppProvider({ children }) {
 
       narrationChunkIndexRef.current = 0;
       narrationCharIndexRef.current = 0;
+      narrationCurrentStartCharRef.current = 0;
+      narrationCurrentLastCharRef.current = 0;
       narrationLanguageRef.current = narrationLanguage;
       narrationVoiceRoleRef.current = narrationVoiceRole;
       narrationVoiceRef.current = pickBestVoice(
