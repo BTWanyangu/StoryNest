@@ -120,7 +120,15 @@ export function AppProvider({ children }) {
   });
 
   const narrationStoppedRef = useRef(false);
+  const narrationPausedRef = useRef(false);
   const narrationRunIdRef = useRef(0);
+  const narrationChunksRef = useRef([]);
+  const narrationChunkIndexRef = useRef(0);
+  const narrationCharIndexRef = useRef(0);
+  const narrationVoiceRef = useRef(null);
+  const narrationLanguageRef = useRef('English');
+  const narrationVoiceRoleRef = useRef('female');
+  const narrationEndTimerRef = useRef(null);
 
   const token = session?.access_token;
   const user = session?.user;
@@ -223,9 +231,133 @@ export function AppProvider({ children }) {
     });
   }
 
+  function clearNarrationTimer() {
+    if (narrationEndTimerRef.current) {
+      window.clearTimeout(narrationEndTimerRef.current);
+      narrationEndTimerRef.current = null;
+    }
+  }
+
+  function buildNarrationUtterance(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    const narrationLanguage = narrationLanguageRef.current;
+    const narrationVoiceRole = narrationVoiceRoleRef.current;
+    const bestVoice = narrationVoiceRef.current;
+
+    utterance.lang = getSpeechLang(narrationLanguage);
+    utterance.rate = 0.74;
+    utterance.pitch = narrationVoiceRole === 'male' ? 0.82 : 1.03;
+    utterance.volume = 0.92;
+
+    if (bestVoice) {
+      utterance.voice = bestVoice;
+      utterance.lang = bestVoice.lang || utterance.lang;
+    }
+
+    return utterance;
+  }
+
+  function speakCurrentNarrationChunk(runId) {
+    if (!('speechSynthesis' in window)) return;
+    if (narrationRunIdRef.current !== runId) return;
+    if (narrationStoppedRef.current || narrationPausedRef.current) return;
+
+    clearNarrationTimer();
+
+    const chunks = narrationChunksRef.current;
+    const chunkIndex = narrationChunkIndexRef.current;
+    const rawChunk = chunks[chunkIndex];
+
+    if (!rawChunk) {
+      setSpeakingStoryId(null);
+      setNarrationPaused(false);
+      narrationStoppedRef.current = true;
+      narrationPausedRef.current = false;
+      return;
+    }
+
+    const savedCharIndex = narrationCharIndexRef.current;
+    const remainingText = String(rawChunk).slice(savedCharIndex);
+    const leadingSpaces = remainingText.length - remainingText.trimStart().length;
+    const startCharIndex = savedCharIndex + leadingSpaces;
+    const textToSpeak = String(rawChunk).slice(startCharIndex);
+
+    if (!textToSpeak.trim()) {
+      narrationChunkIndexRef.current += 1;
+      narrationCharIndexRef.current = 0;
+      speakCurrentNarrationChunk(runId);
+      return;
+    }
+
+    const utterance = buildNarrationUtterance(textToSpeak);
+
+    utterance.onboundary = (event) => {
+      if (
+        narrationRunIdRef.current !== runId ||
+        narrationStoppedRef.current ||
+        narrationPausedRef.current
+      ) {
+        return;
+      }
+
+      if (typeof event.charIndex === 'number' && event.charIndex >= 0) {
+        narrationCharIndexRef.current = startCharIndex + event.charIndex;
+      }
+    };
+
+    utterance.onend = () => {
+      if (
+        narrationRunIdRef.current !== runId ||
+        narrationStoppedRef.current ||
+        narrationPausedRef.current
+      ) {
+        return;
+      }
+
+      narrationChunkIndexRef.current += 1;
+      narrationCharIndexRef.current = 0;
+
+      const nextDelay = chunkIndex === 0 ? 650 : 420;
+
+      narrationEndTimerRef.current = window.setTimeout(() => {
+        speakCurrentNarrationChunk(runId);
+      }, nextDelay);
+    };
+
+    utterance.onerror = () => {
+      if (
+        narrationRunIdRef.current !== runId ||
+        narrationStoppedRef.current ||
+        narrationPausedRef.current
+      ) {
+        return;
+      }
+
+      narrationChunkIndexRef.current += 1;
+      narrationCharIndexRef.current = 0;
+
+      narrationEndTimerRef.current = window.setTimeout(() => {
+        speakCurrentNarrationChunk(runId);
+      }, 300);
+    };
+
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  }
+
   function stopSpeaking() {
     narrationRunIdRef.current += 1;
     narrationStoppedRef.current = true;
+    narrationPausedRef.current = false;
+
+    clearNarrationTimer();
+
+    narrationChunksRef.current = [];
+    narrationChunkIndexRef.current = 0;
+    narrationCharIndexRef.current = 0;
+    narrationVoiceRef.current = null;
+    narrationLanguageRef.current = 'English';
+    narrationVoiceRoleRef.current = 'female';
 
     if ('speechSynthesis' in window) {
       window.speechSynthesis.cancel();
@@ -238,29 +370,36 @@ export function AppProvider({ children }) {
   function pauseSpeaking() {
     if (!('speechSynthesis' in window) || !speakingStoryId) return;
 
-    window.speechSynthesis.pause();
+    narrationPausedRef.current = true;
+    narrationStoppedRef.current = false;
+
+    clearNarrationTimer();
+
+    /**
+     * We intentionally cancel instead of relying only on speechSynthesis.pause().
+     * Browser resume behavior is inconsistent for long queued narration.
+     * The current word position is saved through onboundary, then Continue
+     * starts a fresh utterance from that saved position.
+     */
+    window.speechSynthesis.cancel();
     setNarrationPaused(true);
   }
 
   function resumeSpeaking() {
     if (!('speechSynthesis' in window) || !speakingStoryId) return;
 
-    /**
-     * Some browsers, especially Chrome, can report speechSynthesis.paused
-     * inconsistently after pausing a queued utterance. Do not depend on the
-     * paused flag here. Continue should always attempt to resume and then
-     * update our React state immediately.
-     */
-    window.speechSynthesis.resume();
+    const chunks = narrationChunksRef.current;
+
+    if (!chunks.length) {
+      setNarrationPaused(false);
+      return;
+    }
+
+    narrationPausedRef.current = false;
+    narrationStoppedRef.current = false;
     setNarrationPaused(false);
 
-    // Safety nudge for browsers that need a second resume call after the
-    // current click event has completed.
-    window.setTimeout(() => {
-      if (window.speechSynthesis && speakingStoryId) {
-        window.speechSynthesis.resume();
-      }
-    }, 80);
+    speakCurrentNarrationChunk(narrationRunIdRef.current);
   }
 
   function getSpeechLang(language) {
@@ -398,39 +537,11 @@ export function AppProvider({ children }) {
     const narrationVoiceRole =
       rawVoiceRole === 'male' || rawVoiceRole === 'male' ? 'male' : 'female';
 
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-    const isActiveNarration = (runId) =>
-      narrationRunIdRef.current === runId && !narrationStoppedRef.current;
-
-    const speakText = (text, bestVoice, runId) =>
-      new Promise((resolve) => {
-        if (!text || !isActiveNarration(runId)) {
-          resolve();
-          return;
-        }
-
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = getSpeechLang(narrationLanguage);
-        utterance.rate = 0.74;
-        utterance.pitch = narrationVoiceRole === 'male' ? 0.82 : 1.03;
-        utterance.volume = 0.92;
-
-        if (bestVoice) {
-          utterance.voice = bestVoice;
-          utterance.lang = bestVoice.lang || utterance.lang;
-        }
-
-        utterance.onend = resolve;
-        utterance.onerror = resolve;
-
-        window.speechSynthesis.speak(utterance);
-      });
-
     try {
-      // Every click on Start cancels any active/paused narration and starts again
-      // from the title. The run id prevents an older async narration from
-      // clearing state after a newer narration has started.
+      /**
+       * Start should always begin afresh from the title.
+       * This fully resets any previous playing or paused narration.
+       */
       stopSpeaking();
 
       const runId = narrationRunIdRef.current + 1;
@@ -440,39 +551,38 @@ export function AppProvider({ children }) {
 
       if (narrationRunIdRef.current !== runId) return;
 
-      narrationStoppedRef.current = false;
-      setNarrationPaused(false);
-
-      const bestVoice = pickBestVoice(narrationLanguage, narrationVoiceRole);
-
       const paragraphs = String(story.body || '')
         .split(/\n\s*\n/)
         .map((paragraph) => paragraph.trim())
         .filter(Boolean);
 
+      narrationChunksRef.current = [
+        String(story.title || '').trim(),
+        ...paragraphs,
+      ].filter(Boolean);
+
+      narrationChunkIndexRef.current = 0;
+      narrationCharIndexRef.current = 0;
+      narrationLanguageRef.current = narrationLanguage;
+      narrationVoiceRoleRef.current = narrationVoiceRole;
+      narrationVoiceRef.current = pickBestVoice(
+        narrationLanguage,
+        narrationVoiceRole
+      );
+
+      narrationStoppedRef.current = false;
+      narrationPausedRef.current = false;
+
       setSpeakingStoryId(storyId);
+      setNarrationPaused(false);
 
-      await sleep(160);
-      if (!isActiveNarration(runId)) return;
-
-      await speakText(story.title, bestVoice, runId);
-      await sleep(650);
-
-      for (const paragraph of paragraphs) {
-        if (!isActiveNarration(runId)) break;
-        await speakText(paragraph, bestVoice, runId);
-        await sleep(420);
-      }
-
-      if (isActiveNarration(runId)) {
-        setSpeakingStoryId(null);
-        setNarrationPaused(false);
-      }
+      narrationEndTimerRef.current = window.setTimeout(() => {
+        speakCurrentNarrationChunk(runId);
+      }, 160);
     } catch (error) {
       console.error(error);
 
-      setSpeakingStoryId(null);
-      setNarrationPaused(false);
+      stopSpeaking();
       showToast('Could not play narration', '#ff6b6b');
     }
   }
