@@ -1,5 +1,5 @@
 // src/components/ResetPassword.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 
@@ -7,13 +7,121 @@ export default function ResetPassword({ onBackToLogin }) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [recoveryReady, setRecoveryReady] = useState(false);
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    async function prepareRecoverySession() {
+      setError('');
+      setNotice('');
+      setCheckingSession(true);
+
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const hashParams = new URLSearchParams(
+          window.location.hash.replace(/^#/, '')
+        );
+
+        const code = searchParams.get('code');
+        const accessToken = hashParams.get('access_token');
+        const refreshToken = hashParams.get('refresh_token');
+
+        /**
+         * Supabase may send password reset links in two formats:
+         *
+         * 1. PKCE format:
+         *    /reset-password?code=xxxx
+         *
+         * 2. Token hash format:
+         *    /reset-password#access_token=xxx&refresh_token=xxx
+         *
+         * We support both before calling updateUser().
+         */
+
+        if (code) {
+          const { error: exchangeError } =
+            await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            throw exchangeError;
+          }
+
+          window.history.replaceState({}, '', '/reset-password');
+          setRecoveryReady(true);
+          return;
+        }
+
+        if (accessToken && refreshToken) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+
+          if (sessionError) {
+            throw sessionError;
+          }
+
+          window.history.replaceState({}, '', '/reset-password');
+          setRecoveryReady(true);
+          return;
+        }
+
+        /**
+         * Fallback: sometimes Supabase has already detected the session
+         * from the URL before this component loads.
+         */
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        if (session) {
+          setRecoveryReady(true);
+          return;
+        }
+
+        setRecoveryReady(false);
+        setError(
+          'This reset link is missing, expired, or has already been used. Please request a new password reset link.'
+        );
+      } catch (err) {
+        console.error(err);
+        setRecoveryReady(false);
+        setError(
+          err.message ||
+            'Could not verify your reset link. Please request a new password reset link.'
+        );
+      } finally {
+        setCheckingSession(false);
+      }
+    }
+
+    prepareRecoverySession();
+  }, []);
+
+  const goBackToLogin = async () => {
+    await supabase.auth.signOut();
+
+    if (typeof onBackToLogin === 'function') {
+      onBackToLogin();
+      return;
+    }
+
+    window.location.href = '/login';
+  };
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
     setError('');
     setNotice('');
+
+    if (!recoveryReady) {
+      setError(
+        'Your reset session is not active. Please request a new password reset link.'
+      );
+      return;
+    }
 
     if (!password || !confirmPassword) {
       setError('Please enter and confirm your new password.');
@@ -39,22 +147,81 @@ export default function ResetPassword({ onBackToLogin }) {
     setLoading(false);
 
     if (updateError) {
-      setError(updateError.message || 'Could not update password. Please request a new reset link.');
+      setError(
+        updateError.message ||
+          'Could not update password. Please request a new reset link.'
+      );
       return;
     }
 
     setPassword('');
     setConfirmPassword('');
-    setNotice('Password updated successfully. You can now sign in with your new password.');
+    setRecoveryReady(false);
+    setNotice(
+      'Password updated successfully. You can now sign in with your new password.'
+    );
 
     setTimeout(async () => {
       await supabase.auth.signOut();
-      window.history.replaceState({}, '', '/');
+      window.history.replaceState({}, '', '/login');
+
       if (typeof onBackToLogin === 'function') {
         onBackToLogin();
+      } else {
+        window.location.href = '/login';
       }
     }, 1500);
   };
+
+  if (checkingSession) {
+    return (
+      <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="w-full max-w-md rounded-xl2 border border-white/10 bg-card p-6 text-center sm:p-8"
+        >
+          <div className="mb-3 text-5xl">🔐</div>
+          <h2 className="font-display text-2xl text-moon sm:text-3xl">
+            Checking reset link
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">
+            Please wait while we verify your password reset session.
+          </p>
+        </motion.div>
+      </main>
+    );
+  }
+
+  if (!recoveryReady && error) {
+    return (
+      <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
+        <motion.div
+          initial={{ opacity: 0, y: 18, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="w-full max-w-md rounded-xl2 border border-white/10 bg-card p-6 text-center sm:p-8"
+        >
+          <div className="mb-3 text-5xl">⚠️</div>
+
+          <h2 className="font-display text-2xl text-moon sm:text-3xl">
+            Reset link problem
+          </h2>
+
+          <div className="mt-4 rounded-lg border border-coral/20 bg-coral/10 px-4 py-3 text-sm text-coral">
+            {error}
+          </div>
+
+          <button
+            type="button"
+            onClick={goBackToLogin}
+            className="mt-5 w-full rounded-full bg-gradient-to-br from-purple to-purple2 px-5 py-3 text-base font-bold text-white shadow-purple"
+          >
+            Back to sign in
+          </button>
+        </motion.div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
@@ -126,7 +293,7 @@ export default function ResetPassword({ onBackToLogin }) {
 
         <button
           type="button"
-          onClick={onBackToLogin}
+          onClick={goBackToLogin}
           className="mt-4 w-full text-center text-sm font-bold text-purple3 underline"
         >
           Back to sign in
