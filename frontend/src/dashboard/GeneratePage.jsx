@@ -11,6 +11,40 @@ import {
 export default function GeneratePage() {
   const app = useApp();
 
+  const currentStoryNarrationId = app.currentStory
+    ? app.currentStory.id || app.currentStory.title
+    : null;
+
+  const isCurrentStorySpeaking =
+    app.currentStory &&
+    app.speakingStoryId === currentStoryNarrationId;
+
+  const handleStartCurrentStoryNarration = () => {
+    if (!app.currentStory) return;
+
+    /**
+     * Start should always begin afresh from the story title.
+     * AppContext.speakStory already resets active/paused narration first.
+     */
+    app.speakStory(
+      app.currentStory,
+      app.currentStory.story_language || app.selectedLanguage
+    );
+  };
+
+  const handleSaveCurrentStory = () => {
+    /**
+     * Optional but cleaner:
+     * if narration is playing for the unsaved generated story,
+     * stop it before saving.
+     */
+    if (isCurrentStorySpeaking) {
+      app.stopSpeaking();
+    }
+
+    app.saveCurrentStory();
+  };
+
   return (
     <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       <h2 className="mb-1 font-display text-2xl text-moon sm:text-3xl">
@@ -59,9 +93,7 @@ export default function GeneratePage() {
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.04 }}
-                onClick={() =>
-                  app.setSelectedProfileId(profile.id)
-                }
+                onClick={() => app.setSelectedProfileId(profile.id)}
                 whileHover={{ y: -4, scale: 1.01 }}
                 whileTap={{ scale: 0.98 }}
                 className={classNames(
@@ -156,9 +188,7 @@ export default function GeneratePage() {
 
           <select
             value={app.selectedLanguage}
-            onChange={(e) =>
-              app.setSelectedLanguage(e.target.value)
-            }
+            onChange={(e) => app.setSelectedLanguage(e.target.value)}
             className="w-full rounded-xl2 border border-white/10 bg-card px-4 py-3 text-sm text-text outline-none focus:border-purple2"
           >
             {app.LANGUAGE_OPTIONS.map((language) => (
@@ -232,18 +262,40 @@ export default function GeneratePage() {
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
                 <MotionButton
-                  onClick={() =>
-                    app.speakStory(app.currentStory)
-                  }
+                  onClick={handleStartCurrentStoryNarration}
                   className="rounded-full border border-moon/30 bg-moon/10 px-4 py-2 text-sm font-bold text-moon"
                 >
-                  🔊 Narrate
+                  {isCurrentStorySpeaking
+                    ? '🔁 Start again'
+                    : '🔊 Narrate'}
                 </MotionButton>
 
+                {isCurrentStorySpeaking && (
+                  <>
+                    <MotionButton
+                      onClick={
+                        app.narrationPaused
+                          ? app.resumeSpeaking
+                          : app.pauseSpeaking
+                      }
+                      className="rounded-full border border-moon/25 bg-moon/10 px-4 py-2 text-sm font-bold text-moon"
+                    >
+                      {app.narrationPaused ? '▶ Continue' : '⏸ Pause'}
+                    </MotionButton>
+
+                    <MotionButton
+                      onClick={app.stopSpeaking}
+                      className="rounded-full border border-coral/25 bg-coral/10 px-4 py-2 text-sm font-bold text-coral"
+                    >
+                      ⏹ Stop
+                    </MotionButton>
+                  </>
+                )}
+
                 <MotionButton
-                  onClick={app.saveCurrentStory}
+                  onClick={handleSaveCurrentStory}
                   className="rounded-full bg-gradient-to-br from-purple to-purple2 px-4 py-2 text-sm font-bold text-white"
                 >
                   Save
@@ -252,9 +304,7 @@ export default function GeneratePage() {
             </div>
 
             <div className="space-y-5">
-              <StoryParagraphs
-                text={app.currentStory.body}
-              />
+              <StoryParagraphs text={app.currentStory.body} />
             </div>
           </MotionCard>
         )}
