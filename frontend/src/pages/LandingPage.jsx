@@ -202,7 +202,7 @@ export default function LandingPage() {
                 MOST POPULAR
               </div>
 
-              <div className="mb-3 text-lg font-bold text-white">Pro</div>
+              <div className="mb-3 text-lg font-bold text-white">Moonspun Pro</div>
 
               <div className="mb-6 text-4xl font-extrabold text-[#f5c85b]">
                 $8.99
@@ -269,7 +269,7 @@ export default function LandingPage() {
               className="relative w-full max-w-[360px] cursor-pointer rounded-[22px] border-2 border-[#f5c85b] bg-[#1f2147] p-8 text-left transition hover:border-star hover:shadow-moon"
             >
               <div className="mb-3 text-lg font-bold text-white">
-                Pro Unlimited
+                Moonspun Pro Unlimited
               </div>
 
               <div className="mb-6 text-4xl font-extrabold text-[#f5c85b]">
