@@ -236,25 +236,31 @@ export function AppProvider({ children }) {
   }
 
   function pauseSpeaking() {
-    if (
-      'speechSynthesis' in window &&
-      speakingStoryId &&
-      !window.speechSynthesis.paused
-    ) {
-      window.speechSynthesis.pause();
-      setNarrationPaused(true);
-    }
+    if (!('speechSynthesis' in window) || !speakingStoryId) return;
+
+    window.speechSynthesis.pause();
+    setNarrationPaused(true);
   }
 
   function resumeSpeaking() {
-    if (
-      'speechSynthesis' in window &&
-      speakingStoryId &&
-      window.speechSynthesis.paused
-    ) {
-      window.speechSynthesis.resume();
-      setNarrationPaused(false);
-    }
+    if (!('speechSynthesis' in window) || !speakingStoryId) return;
+
+    /**
+     * Some browsers, especially Chrome, can report speechSynthesis.paused
+     * inconsistently after pausing a queued utterance. Do not depend on the
+     * paused flag here. Continue should always attempt to resume and then
+     * update our React state immediately.
+     */
+    window.speechSynthesis.resume();
+    setNarrationPaused(false);
+
+    // Safety nudge for browsers that need a second resume call after the
+    // current click event has completed.
+    window.setTimeout(() => {
+      if (window.speechSynthesis && speakingStoryId) {
+        window.speechSynthesis.resume();
+      }
+    }, 80);
   }
 
   function getSpeechLang(language) {
