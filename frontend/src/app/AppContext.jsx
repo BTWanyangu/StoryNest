@@ -120,6 +120,7 @@ export function AppProvider({ children }) {
   });
 
   const narrationStoppedRef = useRef(false);
+  const narrationRunIdRef = useRef(0);
 
   const token = session?.access_token;
   const user = session?.user;
@@ -223,6 +224,7 @@ export function AppProvider({ children }) {
   }
 
   function stopSpeaking() {
+    narrationRunIdRef.current += 1;
     narrationStoppedRef.current = true;
 
     if ('speechSynthesis' in window) {
@@ -392,9 +394,12 @@ export function AppProvider({ children }) {
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    const speakText = (text, bestVoice) =>
+    const isActiveNarration = (runId) =>
+      narrationRunIdRef.current === runId && !narrationStoppedRef.current;
+
+    const speakText = (text, bestVoice, runId) =>
       new Promise((resolve) => {
-        if (narrationStoppedRef.current) {
+        if (!text || !isActiveNarration(runId)) {
           resolve();
           return;
         }
@@ -417,8 +422,17 @@ export function AppProvider({ children }) {
       });
 
     try {
+      // Every click on Start cancels any active/paused narration and starts again
+      // from the title. The run id prevents an older async narration from
+      // clearing state after a newer narration has started.
       stopSpeaking();
+
+      const runId = narrationRunIdRef.current + 1;
+      narrationRunIdRef.current = runId;
+
       await waitForVoices();
+
+      if (narrationRunIdRef.current !== runId) return;
 
       narrationStoppedRef.current = false;
       setNarrationPaused(false);
@@ -433,21 +447,24 @@ export function AppProvider({ children }) {
       setSpeakingStoryId(storyId);
 
       await sleep(160);
-      await speakText(story.title, bestVoice);
+      if (!isActiveNarration(runId)) return;
+
+      await speakText(story.title, bestVoice, runId);
       await sleep(650);
 
       for (const paragraph of paragraphs) {
-        if (narrationStoppedRef.current) break;
-        await speakText(paragraph, bestVoice);
+        if (!isActiveNarration(runId)) break;
+        await speakText(paragraph, bestVoice, runId);
         await sleep(420);
       }
 
-      if (!narrationStoppedRef.current) {
+      if (isActiveNarration(runId)) {
         setSpeakingStoryId(null);
         setNarrationPaused(false);
       }
     } catch (error) {
       console.error(error);
+
       setSpeakingStoryId(null);
       setNarrationPaused(false);
       showToast('Could not play narration', '#ff6b6b');

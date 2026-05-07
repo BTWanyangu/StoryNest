@@ -13,6 +13,8 @@ export default function StoryModal() {
 
   if (!story) return null;
 
+  const isCurrentStorySpeaking = app.speakingStoryId === story.id;
+
   return (
     <AnimatePresence>
       <motion.div
@@ -72,12 +74,12 @@ export default function StoryModal() {
               }
               className="rounded-full border border-moon/30 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
             >
-              {app.speakingStoryId === story.id
-                ? '🔊 Playing...'
-                : '🔊 Voice narration'}
+              {isCurrentStorySpeaking
+                ? '🔁 Start from beginning'
+                : '🔊 Start narration'}
             </MotionButton>
 
-            {app.speakingStoryId === story.id && (
+            {isCurrentStorySpeaking && (
               <>
                 <MotionButton
                   onClick={
@@ -87,7 +89,7 @@ export default function StoryModal() {
                   }
                   className="rounded-full border border-moon/25 bg-moon/10 px-5 py-2.5 text-sm font-bold text-moon"
                 >
-                  {app.narrationPaused ? '▶ Resume' : '⏸ Pause'}
+                  {app.narrationPaused ? '▶ Continue' : '⏸ Pause'}
                 </MotionButton>
 
                 <MotionButton
