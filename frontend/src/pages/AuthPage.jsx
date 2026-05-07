@@ -16,6 +16,27 @@ export default function AuthPage({ mode }) {
 
   const authMode = app.authMode;
 
+  const goToLogin = () => {
+    app.setAuthMode('login');
+    app.setAuthError('');
+    app.setAuthNotice('');
+    navigate('/login');
+  };
+
+  const goToSignup = () => {
+    app.setAuthMode('signup');
+    app.setAuthError('');
+    app.setAuthNotice('');
+    navigate('/signup');
+  };
+
+  const goToForgotPassword = () => {
+    app.setAuthMode('forgot');
+    app.setAuthError('');
+    app.setAuthNotice('');
+    navigate('/forgot-password');
+  };
+
   return (
     <main className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6 sm:py-12">
       <motion.div
@@ -149,15 +170,17 @@ export default function AuthPage({ mode }) {
             <>
               <button
                 type="button"
-                onClick={() => navigate('/forgot-password')}
+                onClick={goToForgotPassword}
                 className="text-purple3 underline"
               >
                 Forgot password?
               </button>
+
               <span className="px-2">•</span>
+
               <button
                 type="button"
-                onClick={() => navigate('/signup')}
+                onClick={goToSignup}
                 className="text-purple3 underline"
               >
                 Start trial
@@ -169,7 +192,8 @@ export default function AuthPage({ mode }) {
             <>
               Already have an account?{' '}
               <button
-                onClick={() => navigate('/login')}
+                type="button"
+                onClick={goToLogin}
                 className="text-purple3 underline"
               >
                 Sign in
@@ -179,7 +203,8 @@ export default function AuthPage({ mode }) {
 
           {authMode === 'forgot' && (
             <button
-              onClick={() => navigate('/login')}
+              type="button"
+              onClick={goToLogin}
               className="text-purple3 underline"
             >
               Back to sign in
